@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import { askCoPilot } from "@/utils/copilot.functions";
 
 type SetRow = Tables<"sets">;
 type TrackRow = Tables<"tracks">;
@@ -56,17 +57,41 @@ export function CoPilotPanel({ setRow, tracks }: { setRow: SetRow; tracks: Track
       content: text,
       created_at: new Date().toISOString(),
     };
+    const historySnapshot = messages.map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
     setMessages((m) => [...m, tempUser]);
 
     try {
+      // Persist user message
       await supabase.from("chat_messages").insert({
         set_id: setRow.id,
         role: "user",
         content: text,
       });
 
-      // Local heuristic reply (real AI hookup comes next iteration).
-      const reply = synthesizeReply(text, setRow, tracks);
+      // Get auth token to forward to the server function (RLS-scoped).
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        toast.error("You're signed out — refresh and sign in again.");
+        setSending(false);
+        return;
+      }
+
+      const result = await askCoPilot({
+        data: {
+          setId: setRow.id,
+          userMessage: text,
+          history: historySnapshot,
+        },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const reply = result.reply;
       const tempAi: Msg = {
         id: crypto.randomUUID(),
         set_id: setRow.id,
@@ -80,9 +105,15 @@ export function CoPilotPanel({ setRow, tracks }: { setRow: SetRow; tracks: Track
         content: reply,
       });
       setMessages((m) => [...m, tempAi]);
+
+      if (result.error === "rate_limited") {
+        toast("Slow down a touch — rate limit hit.");
+      } else if (result.error === "payment_required") {
+        toast.error("AI credits exhausted. Top up in workspace settings.");
+      }
     } catch (e) {
       console.error(e);
-      toast.error("Couldn't send to the co-pilot.");
+      toast.error("Couldn't reach the co-pilot.");
     } finally {
       setSending(false);
     }
@@ -161,31 +192,4 @@ export function CoPilotPanel({ setRow, tracks }: { setRow: SetRow; tracks: Track
       </div>
     </div>
   );
-}
-
-/** Local heuristic reply so the panel feels alive before AI is wired. */
-function synthesizeReply(text: string, setRow: SetRow, tracks: TrackRow[]): string {
-  const t = text.toLowerCase();
-  const intention = setRow.intention || "no intention set yet";
-  const count = tracks.length;
-
-  if (t.includes("intention") || t.includes("match")) {
-    if (count === 0) return `You haven't added any tracks yet. Once you do, I'll check each one against your intention: "${intention}".`;
-    return `Reading your map against "${intention}". With ${count} tracks in, your strongest pivot points look like the early-middle transitions — that's where the story usually drifts. Want me to flag specific tracks?`;
-  }
-  if (t.includes("next track") || t.includes("suggest")) {
-    const last = tracks[tracks.length - 1];
-    if (!last) return "Add a starting track first — then I'll suggest what should come next from your imported pool.";
-    return `Your last track is "${last.title}" (${last.camelot_key ?? "key TBD"}, ${last.bpm ?? "BPM TBD"}). I'd look for something within ±1 on the Camelot wheel and within 3% BPM. Once Spotify & Drive are connected I'll pull real candidates.`;
-  }
-  if (t.includes("arc") || t.includes("review")) {
-    return `For "${intention}" you'll want a clear shape: an opening that earns trust, a slow build, a peak that lands, and a graceful release. With ${count} tracks I can check pacing once you mark cue points.`;
-  }
-  if (t.includes("sound effect") || t.includes("effect")) {
-    return `Sound effects work best where transitions are workable but not perfect — they bridge the friction. Once Drive is connected you'll be able to drag riser/impact files straight onto a transition line.`;
-  }
-  if (t.includes("transition") || t.includes("work") || t.includes("why")) {
-    return `Transitions feel right when key + BPM agree. Same Camelot number is automatic; ±1 on the wheel keeps the harmonic story moving forward; jumping letters (A↔B) shifts mood between minor and major.`;
-  }
-  return `I hear you. Right now I'm running on local heuristics — the full AI hookup (intention-aware sequencing, OCR, transition reasoning) lands in the next iteration. Your intention "${intention}" is pinned and I'll use it the moment that turns on.`;
 }
