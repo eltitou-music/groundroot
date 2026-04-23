@@ -99,6 +99,23 @@ export function SpotifyDiagnostics() {
           />
           <Row label="Origin" value={origin} mono />
           <Row label="Client ID" value={SPOTIFY_CLIENT_ID} mono />
+
+          <button
+            onClick={retry}
+            disabled={retrying}
+            className="flex w-full items-center justify-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-[11px] font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-60"
+          >
+            {retrying ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3 w-3" />
+            )}
+            {retrying ? "Redirecting to Spotify…" : "Retry connection"}
+          </button>
+          <p className="text-[10px] text-muted-foreground">
+            Re-runs the OAuth flow using the redirect URI shown above.
+          </p>
+
           <details className="text-[11px] text-muted-foreground">
             <summary className="cursor-pointer">Requested scopes</summary>
             <p className="mt-1 break-words font-mono leading-relaxed">{SPOTIFY_SCOPES}</p>
