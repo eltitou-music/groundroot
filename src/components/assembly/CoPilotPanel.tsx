@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import { askCoPilot } from "@/utils/copilot.functions";
 
 type SetRow = Tables<"sets">;
 type TrackRow = Tables<"tracks">;
@@ -56,17 +57,41 @@ export function CoPilotPanel({ setRow, tracks }: { setRow: SetRow; tracks: Track
       content: text,
       created_at: new Date().toISOString(),
     };
+    const historySnapshot = messages.map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
     setMessages((m) => [...m, tempUser]);
 
     try {
+      // Persist user message
       await supabase.from("chat_messages").insert({
         set_id: setRow.id,
         role: "user",
         content: text,
       });
 
-      // Local heuristic reply (real AI hookup comes next iteration).
-      const reply = synthesizeReply(text, setRow, tracks);
+      // Get auth token to forward to the server function (RLS-scoped).
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        toast.error("You're signed out — refresh and sign in again.");
+        setSending(false);
+        return;
+      }
+
+      const result = await askCoPilot({
+        data: {
+          setId: setRow.id,
+          userMessage: text,
+          history: historySnapshot,
+        },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const reply = result.reply;
       const tempAi: Msg = {
         id: crypto.randomUUID(),
         set_id: setRow.id,
@@ -80,9 +105,15 @@ export function CoPilotPanel({ setRow, tracks }: { setRow: SetRow; tracks: Track
         content: reply,
       });
       setMessages((m) => [...m, tempAi]);
+
+      if (result.error === "rate_limited") {
+        toast("Slow down a touch — rate limit hit.");
+      } else if (result.error === "payment_required") {
+        toast.error("AI credits exhausted. Top up in workspace settings.");
+      }
     } catch (e) {
       console.error(e);
-      toast.error("Couldn't send to the co-pilot.");
+      toast.error("Couldn't reach the co-pilot.");
     } finally {
       setSending(false);
     }
