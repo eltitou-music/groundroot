@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as SpotifyCallbackRouteImport } from './routes/spotify.callback'
 import { Route as AppAssemblySetIdRouteImport } from './routes/_app.assembly.$setId'
 
 const AppRoute = AppRouteImport.update({
@@ -22,6 +23,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const SpotifyCallbackRoute = SpotifyCallbackRouteImport.update({
+  id: '/spotify/callback',
+  path: '/spotify/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppAssemblySetIdRoute = AppAssemblySetIdRouteImport.update({
   id: '/assembly/$setId',
   path: '/assembly/$setId',
@@ -30,28 +36,37 @@ const AppAssemblySetIdRoute = AppAssemblySetIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/spotify/callback': typeof SpotifyCallbackRoute
   '/assembly/$setId': typeof AppAssemblySetIdRoute
 }
 export interface FileRoutesByTo {
+  '/spotify/callback': typeof SpotifyCallbackRoute
   '/': typeof AppIndexRoute
   '/assembly/$setId': typeof AppAssemblySetIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/spotify/callback': typeof SpotifyCallbackRoute
   '/_app/': typeof AppIndexRoute
   '/_app/assembly/$setId': typeof AppAssemblySetIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/assembly/$setId'
+  fullPaths: '/' | '/spotify/callback' | '/assembly/$setId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/assembly/$setId'
-  id: '__root__' | '/_app' | '/_app/' | '/_app/assembly/$setId'
+  to: '/spotify/callback' | '/' | '/assembly/$setId'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/spotify/callback'
+    | '/_app/'
+    | '/_app/assembly/$setId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  SpotifyCallbackRoute: typeof SpotifyCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -69,6 +84,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/spotify/callback': {
+      id: '/spotify/callback'
+      path: '/spotify/callback'
+      fullPath: '/spotify/callback'
+      preLoaderRoute: typeof SpotifyCallbackRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/assembly/$setId': {
       id: '/_app/assembly/$setId'
@@ -94,7 +116,17 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  SpotifyCallbackRoute: SpotifyCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
