@@ -18,6 +18,7 @@ import {
   type SpotifyTrack,
 } from "@/lib/spotify/api";
 import { SpotifyPlayer } from "./SpotifyPlayer";
+import { SpotifyDiagnostics } from "./SpotifyDiagnostics";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -169,6 +170,8 @@ export function SpotifyPanel({
           <LogOut className="h-3 w-3" /> Disconnect
         </button>
       </div>
+
+      <SpotifyDiagnostics />
 
       {/* Search */}
       <div className="flex gap-2">
