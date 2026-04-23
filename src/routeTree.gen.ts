@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as AppAssemblySetIdRouteImport } from './routes/_app.assembly.$setId'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -21,24 +22,32 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAssemblySetIdRoute = AppAssemblySetIdRouteImport.update({
+  id: '/assembly/$setId',
+  path: '/assembly/$setId',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/assembly/$setId': typeof AppAssemblySetIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/assembly/$setId': typeof AppAssemblySetIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_app/': typeof AppIndexRoute
+  '/_app/assembly/$setId': typeof AppAssemblySetIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/assembly/$setId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/_app' | '/_app/'
+  to: '/' | '/assembly/$setId'
+  id: '__root__' | '/_app' | '/_app/' | '/_app/assembly/$setId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -61,15 +70,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/assembly/$setId': {
+      id: '/_app/assembly/$setId'
+      path: '/assembly/$setId'
+      fullPath: '/assembly/$setId'
+      preLoaderRoute: typeof AppAssemblySetIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
+  AppAssemblySetIdRoute: typeof AppAssemblySetIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
+  AppAssemblySetIdRoute: AppAssemblySetIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
