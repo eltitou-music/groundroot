@@ -14,7 +14,285 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          set_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          set_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          set_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_set_id_fkey"
+            columns: ["set_id"]
+            isOneToOne: false
+            referencedRelation: "sets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sets: {
+        Row: {
+          cover_image_url: string | null
+          created_at: string
+          id: string
+          ideal_arc: string | null
+          intention: string | null
+          occasion: string | null
+          title: string
+          updated_at: string
+          user_id: string
+          vision_notes: string | null
+        }
+        Insert: {
+          cover_image_url?: string | null
+          created_at?: string
+          id?: string
+          ideal_arc?: string | null
+          intention?: string | null
+          occasion?: string | null
+          title?: string
+          updated_at?: string
+          user_id: string
+          vision_notes?: string | null
+        }
+        Update: {
+          cover_image_url?: string | null
+          created_at?: string
+          id?: string
+          ideal_arc?: string | null
+          intention?: string | null
+          occasion?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          vision_notes?: string | null
+        }
+        Relationships: []
+      }
+      sound_effects: {
+        Row: {
+          created_at: string
+          drive_file_id: string | null
+          from_track_id: string
+          id: string
+          label: string
+          set_id: string
+          source: Database["public"]["Enums"]["track_source"]
+          to_track_id: string
+          upload_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          drive_file_id?: string | null
+          from_track_id: string
+          id?: string
+          label: string
+          set_id: string
+          source: Database["public"]["Enums"]["track_source"]
+          to_track_id: string
+          upload_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          drive_file_id?: string | null
+          from_track_id?: string
+          id?: string
+          label?: string
+          set_id?: string
+          source?: Database["public"]["Enums"]["track_source"]
+          to_track_id?: string
+          upload_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sound_effects_from_track_id_fkey"
+            columns: ["from_track_id"]
+            isOneToOne: false
+            referencedRelation: "tracks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sound_effects_set_id_fkey"
+            columns: ["set_id"]
+            isOneToOne: false
+            referencedRelation: "sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sound_effects_to_track_id_fkey"
+            columns: ["to_track_id"]
+            isOneToOne: false
+            referencedRelation: "tracks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tracks: {
+        Row: {
+          artist: string | null
+          bpm: number | null
+          camelot_key: string | null
+          created_at: string
+          cue_in: number | null
+          cue_out: number | null
+          danceability: number | null
+          drive_file_id: string | null
+          duration_seconds: number | null
+          energy: number | null
+          id: string
+          notes: string | null
+          position: number
+          set_id: string
+          source: Database["public"]["Enums"]["track_source"]
+          spotify_track_id: string | null
+          title: string
+          updated_at: string
+          upload_url: string | null
+          valence: number | null
+        }
+        Insert: {
+          artist?: string | null
+          bpm?: number | null
+          camelot_key?: string | null
+          created_at?: string
+          cue_in?: number | null
+          cue_out?: number | null
+          danceability?: number | null
+          drive_file_id?: string | null
+          duration_seconds?: number | null
+          energy?: number | null
+          id?: string
+          notes?: string | null
+          position?: number
+          set_id: string
+          source: Database["public"]["Enums"]["track_source"]
+          spotify_track_id?: string | null
+          title: string
+          updated_at?: string
+          upload_url?: string | null
+          valence?: number | null
+        }
+        Update: {
+          artist?: string | null
+          bpm?: number | null
+          camelot_key?: string | null
+          created_at?: string
+          cue_in?: number | null
+          cue_out?: number | null
+          danceability?: number | null
+          drive_file_id?: string | null
+          duration_seconds?: number | null
+          energy?: number | null
+          id?: string
+          notes?: string | null
+          position?: number
+          set_id?: string
+          source?: Database["public"]["Enums"]["track_source"]
+          spotify_track_id?: string | null
+          title?: string
+          updated_at?: string
+          upload_url?: string | null
+          valence?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracks_set_id_fkey"
+            columns: ["set_id"]
+            isOneToOne: false
+            referencedRelation: "sets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transition_notes: {
+        Row: {
+          created_at: string
+          from_track_id: string
+          id: string
+          note: string | null
+          quality: string | null
+          set_id: string
+          to_track_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_track_id: string
+          id?: string
+          note?: string | null
+          quality?: string | null
+          set_id: string
+          to_track_id: string
+        }
+        Update: {
+          created_at?: string
+          from_track_id?: string
+          id?: string
+          note?: string | null
+          quality?: string | null
+          set_id?: string
+          to_track_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transition_notes_from_track_id_fkey"
+            columns: ["from_track_id"]
+            isOneToOne: false
+            referencedRelation: "tracks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transition_notes_set_id_fkey"
+            columns: ["set_id"]
+            isOneToOne: false
+            referencedRelation: "sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transition_notes_to_track_id_fkey"
+            columns: ["to_track_id"]
+            isOneToOne: false
+            referencedRelation: "tracks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +301,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      track_source: "spotify" | "drive" | "upload" | "manual"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +428,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      track_source: ["spotify", "drive", "upload", "manual"],
+    },
   },
 } as const
