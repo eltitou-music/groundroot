@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, Check, ChevronDown, ChevronRight, Copy, Stethoscope, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, ChevronRight, Copy, Loader2, RefreshCw, Stethoscope, Trash2 } from "lucide-react";
 import { SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT_URI, SPOTIFY_SCOPES } from "@/lib/spotify/config";
 import {
+  beginSpotifyLogin,
   clearLastSpotifyError,
   getLastSpotifyError,
   type SpotifyAuthError,
@@ -13,6 +14,7 @@ export function SpotifyDiagnostics() {
   const [open, setOpen] = useState(false);
   const [lastError, setLastError] = useState<SpotifyAuthError | null>(null);
   const [origin, setOrigin] = useState("");
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     setLastError(getLastSpotifyError());
@@ -37,6 +39,21 @@ export function SpotifyDiagnostics() {
   const dismiss = () => {
     clearLastSpotifyError();
     setLastError(null);
+  };
+
+  const retry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    try {
+      const returnTo =
+        typeof window !== "undefined"
+          ? window.location.pathname + window.location.search
+          : "/";
+      await beginSpotifyLogin(returnTo);
+    } catch (e) {
+      setRetrying(false);
+      toast.error(e instanceof Error ? e.message : "Couldn't start Spotify login");
+    }
   };
 
   const hasFreshError = !!lastError && Date.now() - lastError.at < 10 * 60 * 1000;
