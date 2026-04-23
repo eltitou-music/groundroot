@@ -18,6 +18,7 @@ import {
   type SpotifyTrack,
 } from "@/lib/spotify/api";
 import { SpotifyPlayer } from "./SpotifyPlayer";
+import { SpotifyDiagnostics } from "./SpotifyDiagnostics";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -170,6 +171,8 @@ export function SpotifyPanel({
         </button>
       </div>
 
+      <SpotifyDiagnostics />
+
       {/* Search */}
       <div className="flex gap-2">
         <div className="relative flex-1">
@@ -248,6 +251,7 @@ function ConnectCTA({ setId }: { setId: string }) {
         With Premium you'll get full-track playback inside the app via Spotify's Web
         Playback SDK. Otherwise you'll get 30-second previews — still enough to sequence.
       </p>
+      <SpotifyDiagnostics />
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { consumeReturnTo, exchangeCodeForToken } from "@/lib/spotify/auth";
+import { consumeReturnTo, exchangeCodeForToken, recordSpotifyError } from "@/lib/spotify/auth";
+import { SPOTIFY_REDIRECT_URI } from "@/lib/spotify/config";
 
 export const Route = createFileRoute("/spotify/callback")({
   component: SpotifyCallback,
@@ -20,11 +21,16 @@ function SpotifyCallback() {
     const state = url.searchParams.get("state");
     const err = url.searchParams.get("error");
     if (err) {
-      setError(err);
+      const desc = url.searchParams.get("error_description") ?? "";
+      const full = desc ? `${err}: ${desc}` : err;
+      setError(full);
+      recordSpotifyError({ message: full, raw: url.search, redirectUri: SPOTIFY_REDIRECT_URI });
       return;
     }
     if (!code || !state) {
-      setError("Missing code or state from Spotify.");
+      const msg = "Missing code or state from Spotify.";
+      setError(msg);
+      recordSpotifyError({ message: msg, raw: url.search, redirectUri: SPOTIFY_REDIRECT_URI });
       return;
     }
     exchangeCodeForToken(code, state)
@@ -32,7 +38,11 @@ function SpotifyCallback() {
         const back = consumeReturnTo();
         navigate({ to: back });
       })
-      .catch((e) => setError(e.message ?? "Couldn't complete Spotify login."));
+      .catch((e) => {
+        const msg = e?.message ?? "Couldn't complete Spotify login.";
+        setError(msg);
+        recordSpotifyError({ message: msg, redirectUri: SPOTIFY_REDIRECT_URI });
+      });
   }, [navigate]);
 
   if (error) {
