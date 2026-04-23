@@ -59,7 +59,7 @@ function IntroPage() {
 
       const { data: setRow, error } = await supabase
         .from("sets")
-        .insert(payload)
+        .insert([payload])
         .select()
         .single();
       if (error) throw error;
