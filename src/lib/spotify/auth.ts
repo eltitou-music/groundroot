@@ -84,9 +84,11 @@ export async function beginSpotifyLogin(returnTo: string) {
   const challenge = await codeChallengeFromVerifier(verifier);
   const state = randomState();
 
-  sessionStorage.setItem(STORAGE.verifier, verifier);
-  sessionStorage.setItem(STORAGE.state, state);
-  sessionStorage.setItem(STORAGE.returnTo, returnTo);
+  // Use localStorage so the callback works even when Spotify opens in a
+  // new tab/window (sessionStorage is per-tab and would be empty there).
+  localStorage.setItem(STORAGE.verifier, verifier);
+  localStorage.setItem(STORAGE.state, state);
+  localStorage.setItem(STORAGE.returnTo, returnTo);
 
   const params = new URLSearchParams({
     client_id: SPOTIFY_CLIENT_ID,
@@ -118,14 +120,14 @@ export async function beginSpotifyLogin(returnTo: string) {
 }
 
 export function consumeReturnTo(): string {
-  const v = sessionStorage.getItem(STORAGE.returnTo) ?? "/";
-  sessionStorage.removeItem(STORAGE.returnTo);
+  const v = localStorage.getItem(STORAGE.returnTo) ?? "/";
+  localStorage.removeItem(STORAGE.returnTo);
   return v;
 }
 
 export async function exchangeCodeForToken(code: string, state: string) {
-  const expectedState = sessionStorage.getItem(STORAGE.state);
-  const verifier = sessionStorage.getItem(STORAGE.verifier);
+  const expectedState = localStorage.getItem(STORAGE.state);
+  const verifier = localStorage.getItem(STORAGE.verifier);
   if (!expectedState || expectedState !== state) {
     throw new Error("State mismatch — possible CSRF.");
   }
@@ -157,8 +159,8 @@ export async function exchangeCodeForToken(code: string, state: string) {
     token_type: json.token_type,
   };
   saveToken(token);
-  sessionStorage.removeItem(STORAGE.verifier);
-  sessionStorage.removeItem(STORAGE.state);
+  localStorage.removeItem(STORAGE.verifier);
+  localStorage.removeItem(STORAGE.state);
   return token;
 }
 
