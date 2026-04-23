@@ -41,25 +41,27 @@ function IntroPage() {
   const handleStart = async (skip = false) => {
     setSaving(true);
     try {
-      // If not signed in, sign in anonymously so we can persist immediately.
-      if (!userId) {
+      // Make sure we have a session (anonymous is fine for early play).
+      let uid = userId;
+      if (!uid) {
         const { data, error } = await supabase.auth.signInAnonymously();
         if (error) throw error;
-        setUserId(data.user?.id ?? null);
+        uid = data.user?.id ?? null;
+        setUserId(uid);
       }
+      if (!uid) throw new Error("No session");
 
-      const payload = skip
-        ? { title: title || "Untitled set" }
-        : {
-            title: title || "Untitled set",
-            intention: intention || null,
-            vision_notes: vision || null,
-            occasion: occasion || null,
-          };
+      const payload = {
+        user_id: uid,
+        title: title || "Untitled set",
+        intention: skip ? null : intention || null,
+        vision_notes: skip ? null : vision || null,
+        occasion: skip ? null : occasion || null,
+      };
 
       const { data: setRow, error } = await supabase
         .from("sets")
-        .insert([payload])
+        .insert(payload)
         .select()
         .single();
       if (error) throw error;
