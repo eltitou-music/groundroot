@@ -102,7 +102,7 @@ function AssemblyPage() {
         </div>
       </header>
 
-      <IntentionPin setRow={setRow} onUpdate={(s) => setSetRow(s)} />
+      <IntentionPin setRow={setRow} onUpdate={(s: SetRow) => setSetRow(s)} />
 
       <motion.div
         initial={{ opacity: 0 }}
