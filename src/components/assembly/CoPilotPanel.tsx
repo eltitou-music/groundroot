@@ -193,30 +193,3 @@ export function CoPilotPanel({ setRow, tracks }: { setRow: SetRow; tracks: Track
     </div>
   );
 }
-
-/** Local heuristic reply so the panel feels alive before AI is wired. */
-function synthesizeReply(text: string, setRow: SetRow, tracks: TrackRow[]): string {
-  const t = text.toLowerCase();
-  const intention = setRow.intention || "no intention set yet";
-  const count = tracks.length;
-
-  if (t.includes("intention") || t.includes("match")) {
-    if (count === 0) return `You haven't added any tracks yet. Once you do, I'll check each one against your intention: "${intention}".`;
-    return `Reading your map against "${intention}". With ${count} tracks in, your strongest pivot points look like the early-middle transitions — that's where the story usually drifts. Want me to flag specific tracks?`;
-  }
-  if (t.includes("next track") || t.includes("suggest")) {
-    const last = tracks[tracks.length - 1];
-    if (!last) return "Add a starting track first — then I'll suggest what should come next from your imported pool.";
-    return `Your last track is "${last.title}" (${last.camelot_key ?? "key TBD"}, ${last.bpm ?? "BPM TBD"}). I'd look for something within ±1 on the Camelot wheel and within 3% BPM. Once Spotify & Drive are connected I'll pull real candidates.`;
-  }
-  if (t.includes("arc") || t.includes("review")) {
-    return `For "${intention}" you'll want a clear shape: an opening that earns trust, a slow build, a peak that lands, and a graceful release. With ${count} tracks I can check pacing once you mark cue points.`;
-  }
-  if (t.includes("sound effect") || t.includes("effect")) {
-    return `Sound effects work best where transitions are workable but not perfect — they bridge the friction. Once Drive is connected you'll be able to drag riser/impact files straight onto a transition line.`;
-  }
-  if (t.includes("transition") || t.includes("work") || t.includes("why")) {
-    return `Transitions feel right when key + BPM agree. Same Camelot number is automatic; ±1 on the wheel keeps the harmonic story moving forward; jumping letters (A↔B) shifts mood between minor and major.`;
-  }
-  return `I hear you. Right now I'm running on local heuristics — the full AI hookup (intention-aware sequencing, OCR, transition reasoning) lands in the next iteration. Your intention "${intention}" is pinned and I'll use it the moment that turns on.`;
-}
