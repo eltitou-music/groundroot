@@ -251,6 +251,7 @@ function ConnectCTA({ setId }: { setId: string }) {
         With Premium you'll get full-track playback inside the app via Spotify's Web
         Playback SDK. Otherwise you'll get 30-second previews — still enough to sequence.
       </p>
+      <SpotifyDiagnostics />
     </div>
   );
 }
