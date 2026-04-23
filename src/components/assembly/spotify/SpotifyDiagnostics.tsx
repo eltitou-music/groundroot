@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, Check, ChevronDown, ChevronRight, Copy, Stethoscope, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, ChevronRight, Copy, Loader2, RefreshCw, Stethoscope, Trash2 } from "lucide-react";
 import { SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT_URI, SPOTIFY_SCOPES } from "@/lib/spotify/config";
 import {
+  beginSpotifyLogin,
   clearLastSpotifyError,
   getLastSpotifyError,
   type SpotifyAuthError,
@@ -13,6 +14,7 @@ export function SpotifyDiagnostics() {
   const [open, setOpen] = useState(false);
   const [lastError, setLastError] = useState<SpotifyAuthError | null>(null);
   const [origin, setOrigin] = useState("");
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     setLastError(getLastSpotifyError());
@@ -37,6 +39,21 @@ export function SpotifyDiagnostics() {
   const dismiss = () => {
     clearLastSpotifyError();
     setLastError(null);
+  };
+
+  const retry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    try {
+      const returnTo =
+        typeof window !== "undefined"
+          ? window.location.pathname + window.location.search
+          : "/";
+      await beginSpotifyLogin(returnTo);
+    } catch (e) {
+      setRetrying(false);
+      toast.error(e instanceof Error ? e.message : "Couldn't start Spotify login");
+    }
   };
 
   const hasFreshError = !!lastError && Date.now() - lastError.at < 10 * 60 * 1000;
@@ -82,6 +99,23 @@ export function SpotifyDiagnostics() {
           />
           <Row label="Origin" value={origin} mono />
           <Row label="Client ID" value={SPOTIFY_CLIENT_ID} mono />
+
+          <button
+            onClick={retry}
+            disabled={retrying}
+            className="flex w-full items-center justify-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-[11px] font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-60"
+          >
+            {retrying ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3 w-3" />
+            )}
+            {retrying ? "Redirecting to Spotify…" : "Retry connection"}
+          </button>
+          <p className="text-[10px] text-muted-foreground">
+            Re-runs the OAuth flow using the redirect URI shown above.
+          </p>
+
           <details className="text-[11px] text-muted-foreground">
             <summary className="cursor-pointer">Requested scopes</summary>
             <p className="mt-1 break-words font-mono leading-relaxed">{SPOTIFY_SCOPES}</p>
