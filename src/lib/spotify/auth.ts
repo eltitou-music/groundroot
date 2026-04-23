@@ -16,6 +16,7 @@ const STORAGE = {
   state: "spotify_pkce_state",
   returnTo: "spotify_return_to",
   token: "spotify_token",
+  lastError: "spotify_last_error",
 };
 
 export type SpotifyToken = {
@@ -43,6 +44,39 @@ export function saveToken(t: SpotifyToken) {
 
 export function clearToken() {
   localStorage.removeItem(STORAGE.token);
+}
+
+export type SpotifyAuthError = {
+  message: string;
+  raw?: string;
+  redirectUri: string;
+  at: number; // ms epoch
+};
+
+export function recordSpotifyError(err: Omit<SpotifyAuthError, "at">) {
+  if (typeof window === "undefined") return;
+  const payload: SpotifyAuthError = { ...err, at: Date.now() };
+  try {
+    localStorage.setItem(STORAGE.lastError, JSON.stringify(payload));
+  } catch {
+    /* ignore quota */
+  }
+}
+
+export function getLastSpotifyError(): SpotifyAuthError | null {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(STORAGE.lastError);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as SpotifyAuthError;
+  } catch {
+    return null;
+  }
+}
+
+export function clearLastSpotifyError() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(STORAGE.lastError);
 }
 
 export async function beginSpotifyLogin(returnTo: string) {
