@@ -6,13 +6,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { SpotifyPanel } from "./spotify/SpotifyPanel";
 
 type Tab = "spotify" | "drive" | "upload" | "paste" | "photo" | "manual";
 
 const tabs: { id: Tab; label: string; icon: typeof Music2; soon?: boolean }[] = [
   { id: "manual", label: "Quick add", icon: Plus },
   { id: "paste", label: "Paste setlist", icon: FileText },
-  { id: "spotify", label: "Spotify", icon: Music2, soon: true },
+  { id: "spotify", label: "Spotify", icon: Music2 },
   { id: "drive", label: "Drive", icon: HardDrive, soon: true },
   { id: "upload", label: "Upload", icon: Upload, soon: true },
   { id: "photo", label: "Photo", icon: Camera, soon: true },
@@ -63,6 +64,8 @@ export function SourcesPanel({
           <ManualAdd setId={setId} onAdded={onTrackAdded} />
         ) : tab === "paste" ? (
           <PasteSetlist setId={setId} onAdded={onTrackAdded} />
+        ) : tab === "spotify" ? (
+          <SpotifyPanel setId={setId} onTrackAdded={onTrackAdded} />
         ) : (
           <ComingSoon tab={tab} />
         )}
