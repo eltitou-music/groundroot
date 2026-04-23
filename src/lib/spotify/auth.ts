@@ -98,7 +98,23 @@ export async function beginSpotifyLogin(returnTo: string) {
     scope: SPOTIFY_SCOPES,
   });
 
-  window.location.href = `${SPOTIFY_AUTH_URL}?${params.toString()}`;
+  const authUrl = `${SPOTIFY_AUTH_URL}?${params.toString()}`;
+
+  // Spotify's auth page sets X-Frame-Options: DENY, so it can't load inside
+  // an iframe (e.g. the Lovable preview). If we detect we're framed, break
+  // out to the top-level window so the OAuth page can render.
+  try {
+    if (window.top && window.top !== window.self) {
+      window.top.location.href = authUrl;
+      return;
+    }
+  } catch {
+    // Cross-origin top access throws — that itself means we're framed.
+    window.open(authUrl, "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  window.location.href = authUrl;
 }
 
 export function consumeReturnTo(): string {
