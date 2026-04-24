@@ -12,12 +12,12 @@ export const Route = createFileRoute("/_app/")({
 
 type Destination = {
   label: string;
-  to?: "/assembly";
+  action?: "start";
   comingSoon?: boolean;
 };
 
 const destinations: Destination[] = [
-  { label: "Assembly", to: "/assembly" },
+  { label: "Assembly", action: "start" },
   { label: "Beatmaker", comingSoon: true },
   { label: "Library", comingSoon: true },
   { label: "Mastering", comingSoon: true },
@@ -153,12 +153,14 @@ function IntroPage() {
                   {dest.label}
                 </span>
               ) : (
-                <Link
-                  to={dest.to!}
-                  className="text-warm-link transition-opacity hover:opacity-70"
+                <button
+                  type="button"
+                  onClick={handleStart}
+                  disabled={saving}
+                  className="text-warm-link transition-opacity hover:opacity-70 disabled:opacity-40"
                 >
                   {dest.label}
-                </Link>
+                </button>
               )}
               {i < destinations.length - 1 && (
                 <span className="text-warm-link/30">·</span>
