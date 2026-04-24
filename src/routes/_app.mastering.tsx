@@ -1,12 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { ChevronLeft, Download, Sparkles, Play, Pause, Volume2, Sliders, Maximize2, Layers } from "lucide-react";
+import { ChevronLeft, Sparkles, Play, Pause, Volume2, Sliders, Maximize2, Layers, Share2, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Slider } from "@/components/ui/slider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { zodValidator } from "@tanstack/zod-adapter";
 import { intentionSearchSchema } from "@/utils/intention";
+import { ensureSetForRender, publishMaster, synthesizePreviewWav } from "@/utils/share";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/mastering")({
   validateSearch: zodValidator(intentionSearchSchema),
@@ -29,7 +31,7 @@ const PRESETS = [
 ] as const;
 
 function MasteringPage() {
-  const { intention } = Route.useSearch();
+  const { intention, dedicatedTo } = Route.useSearch();
   const navigate = useNavigate();
   const [lufs, setLufs] = useState(-14);
   const [low, setLow] = useState(0);
@@ -42,6 +44,26 @@ function MasteringPage() {
   const [playhead, setPlayhead] = useState(0); // 0..1
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef<number | null>(null);
+  const [publishing, setPublishing] = useState(false);
+
+  const handlePublish = async () => {
+    if (publishing) return;
+    setPublishing(true);
+    try {
+      const setId = await ensureSetForRender(intention, dedicatedTo);
+      const wav = synthesizePreviewWav({ lufs, width, glue });
+      const { shareUrl } = await publishMaster(setId, wav);
+      toast.success("Shared. Link copied.", {
+        action: { label: "Open", onClick: () => window.open(shareUrl, "_blank") },
+      });
+      try { await navigator.clipboard.writeText(shareUrl); } catch { /* ignore */ }
+    } catch (e) {
+      console.error(e);
+      toast.error("Couldn't render & share. Please try again.");
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   const applyPreset = (p: (typeof PRESETS)[number]) => {
     setLufs(p.lufs); setLow(p.low); setMid(p.mid); setHigh(p.high);
@@ -185,6 +207,7 @@ function MasteringPage() {
         {intention && (
           <p className="mt-2 text-xs uppercase tracking-[0.18em] text-warm-link/80">
             from your intention · <span className="italic normal-case text-foreground/80">{intention}</span>
+            {dedicatedTo && <span className="italic normal-case text-foreground/70"> · for {dedicatedTo}</span>}
           </p>
         )}
 
@@ -333,12 +356,13 @@ function MasteringPage() {
           </div>
 
           <button
-            disabled
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-warm-link/30 px-5 py-3 text-xs uppercase tracking-[0.18em] text-warm-link opacity-70"
-            title="Available once Assembly is finished"
+            onClick={handlePublish}
+            disabled={publishing}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-warm-link px-5 py-3 text-xs uppercase tracking-[0.18em] text-background transition-all hover:scale-[1.02] disabled:opacity-60"
+            title="Render the master, publish it, and copy a share link"
           >
-            <Download className="h-3.5 w-3.5" />
-            Render master
+            {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Share2 className="h-3.5 w-3.5" />}
+            {publishing ? "Rendering…" : "Render & share"}
           </button>
         </motion.div>
 
