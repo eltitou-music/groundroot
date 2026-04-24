@@ -112,7 +112,7 @@ function IntroPage() {
           transition={{ duration: 0.8, delay: 0.45, ease: "easeOut" }}
           className="mt-16 w-full max-w-xl"
         >
-          <div className="group relative">
+          <div className="group relative rounded-full border border-border/50 bg-card/30 px-6 py-1 backdrop-blur-sm transition-colors focus-within:border-warm-link">
             <input
               type="text"
               value={intention}
@@ -121,12 +121,10 @@ function IntroPage() {
               placeholder="What's today's intention?"
               autoFocus
               className={cn(
-                "w-full bg-transparent pb-3 pr-10 text-center text-lg text-foreground",
+                "w-full bg-transparent py-3 pr-10 text-center text-lg text-foreground",
                 "placeholder:text-muted-foreground/50",
-                "border-0 border-b border-border/50 focus:border-warm-link focus:outline-none",
-                "transition-colors",
+                "border-0 focus:outline-none",
               )}
-              style={{ borderBottomColor: "var(--warm-link)" }}
             />
             <button
               type="button"
@@ -134,7 +132,7 @@ function IntroPage() {
               disabled={saving}
               aria-label="Begin"
               className={cn(
-                "absolute right-0 bottom-3 flex h-8 w-8 items-center justify-center rounded-full",
+                "absolute right-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full",
                 "text-muted-foreground/60 transition-all",
                 "hover:text-warm-link hover:scale-110",
                 "disabled:opacity-40",
