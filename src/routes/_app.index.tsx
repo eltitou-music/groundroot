@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState, type KeyboardEvent } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_app/")({
 type Destination = {
   label: string;
   action?: "start";
-  comingSoon?: boolean;
+  to?: "/beatmaker" | "/library" | "/mastering" | "/about";
 };
 
 const destinations: Destination[] = [
