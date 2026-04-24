@@ -247,7 +247,7 @@ export function WelcomePage() {
             />
             <button
               type="button"
-              onClick={handleStart}
+              onClick={() => handleStart()}
               disabled={saving}
               aria-label="Begin"
               className={cn(
@@ -259,6 +259,28 @@ export function WelcomePage() {
             >
               <ArrowRight className="h-4 w-4" />
             </button>
+          </div>
+
+          {/* One-tap intention templates */}
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            {intentionTemplates.map((tpl) => (
+              <button
+                key={tpl.label}
+                type="button"
+                onClick={() => handleTemplate(tpl)}
+                disabled={saving}
+                title={tpl.intention}
+                className={cn(
+                  "group inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/50 px-3 py-1.5",
+                  "text-xs text-foreground/80 backdrop-blur-sm transition-all",
+                  "hover:border-warm-link hover:bg-warm-link/10 hover:text-foreground",
+                  "disabled:cursor-not-allowed disabled:opacity-40",
+                )}
+              >
+                <span aria-hidden className="text-sm leading-none">{tpl.emoji}</span>
+                <span>{tpl.label}</span>
+              </button>
+            ))}
           </div>
         </motion.div>
 
