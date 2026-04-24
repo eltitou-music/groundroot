@@ -17,11 +17,11 @@ type Destination = {
 };
 
 const destinations: Destination[] = [
+  { label: "Beatmaker", to: "/beatmaker" },
+  { label: "Library", to: "/library" },
+  { label: "Mastering", to: "/mastering" },
   { label: "Assembly", action: "start" },
-  { label: "Beatmaker", comingSoon: true },
-  { label: "Library", comingSoon: true },
-  { label: "Mastering", comingSoon: true },
-  { label: "About", comingSoon: true },
+  { label: "About", to: "/about" },
 ];
 
 function IntroPage() {
