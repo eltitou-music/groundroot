@@ -87,7 +87,8 @@ function IntroPage() {
           <span>A calm studio for sequencing your set</span>
         </div>
         <h1 className="mt-4 text-4xl leading-tight md:text-5xl">
-          Hey — what are you shaping today?
+          Hey — what are you{" "}
+          <span className="text-gradient-brand-strong">shaping</span> today?
         </h1>
         <p className="mt-4 max-w-xl text-base text-muted-foreground">
           Drop your whole vision in one go. The AI co-pilot keeps it pinned at the top
