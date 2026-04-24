@@ -191,7 +191,7 @@ const STYLES: Style[] = [
 ];
 
 function BeatmakerPage() {
-  const { intention } = Route.useSearch();
+  const { intention, dedicatedTo } = Route.useSearch();
   const navigate = useNavigate();
   const [styleId, setStyleId] = useState<string>(STYLES[0].id);
   const [pattern, setPattern] = useState<boolean[][]>(() => stylePattern(STYLES[0]));
@@ -344,14 +344,15 @@ function BeatmakerPage() {
           Beatmaker
         </motion.h1>
 
-        {intention && (
+        {(intention || dedicatedTo) && (
           <motion.p
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
             className="mt-2 text-xs uppercase tracking-[0.18em] text-warm-link/80"
           >
-            from your intention · <span className="italic normal-case text-foreground/80">{intention}</span>
+            {intention && <>from your intention · <span className="italic normal-case text-foreground/80">{intention}</span></>}
+            {dedicatedTo && <span className="italic normal-case text-foreground/70"> · for {dedicatedTo}</span>}
           </motion.p>
         )}
 
