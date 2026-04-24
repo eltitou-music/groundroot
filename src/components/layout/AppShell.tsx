@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation } from "@tanstack/react-router";
 import { Sparkles, Layers, Music, Library, Sliders, Info, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 type NavItem = {
   label: string;
@@ -26,10 +27,12 @@ export function AppShell() {
       <aside className="hidden w-56 flex-col border-r border-border bg-sidebar px-3 py-6 md:flex">
         <div className="px-3 pb-8">
           <Link to="/" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <span className="text-sm font-semibold">F</span>
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-brand text-background shadow-[var(--shadow-glow)]">
+              <span className="text-sm font-semibold">G</span>
             </span>
-            <span className="font-display text-lg">GroundRoot</span>
+            <span className="font-display text-lg text-gradient-brand-strong">
+              GroundRoot
+            </span>
           </Link>
         </div>
         <nav className="flex flex-col gap-1">
@@ -74,6 +77,11 @@ export function AppShell() {
       </aside>
 
       <main className="flex-1 overflow-x-hidden">
+        <div className="pointer-events-none sticky top-0 z-40 flex justify-end px-4 pt-4 md:px-6">
+          <div className="pointer-events-auto">
+            <ThemeToggle />
+          </div>
+        </div>
         <Outlet />
       </main>
     </div>

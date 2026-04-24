@@ -2,6 +2,7 @@ import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/r
 
 import appCss from "../styles.css?url";
 import { Toaster } from "sonner";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
 
 function NotFoundComponent() {
   return (
@@ -87,9 +88,9 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   return (
-    <>
+    <ThemeProvider>
       <Outlet />
       <Toaster position="bottom-right" richColors closeButton />
-    </>
+    </ThemeProvider>
   );
 }
