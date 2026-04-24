@@ -1,101 +1,66 @@
-# Fluid DJ — Phase 1 Refined: Assembly with Spotify + Google Drive
 
-Focus narrows to **Assembly**, with two big additions: import directly from your Spotify playlists and Google Drive, and a visual transition map with an AI co-pilot that helps you sequence the set so the intention lands.
 
-## The flow
+## Redesign the intro page
 
-1. **Intro page** — quick warm hello, captures your **intention** (one sentence, free text). Stored and pinned to the top of Assembly so the AI always knows what you're shaping. Skippable if you already know. Here it allows the user to drop the full set/EP vision : what is the composition of the EP, what occasion are you making it for, what are the sets made of, what is the desired cover pictures, existing tracklist, notes, thoughts, fears. Drop it all in one GO
-2. **Assembly page** — the heart. Everything below.
-3. *(Other pages — beatmaker, library, mastering, about — stay greyed-out "coming soon" so the architecture is visible.)*
+Make `/` a calm, atmospheric landing — big "GroundRoot" wordmark, a short purpose tagline, one intention input, and a quiet row of destinations. Tone down the gradient so color radiates from a warm yellow center outward to orange/red, and give the black canvas a subtle carbon texture for depth.
 
-## Assembly page — layout
+### What you'll see
 
-Three zones in one calm screen:
+```text
+┌───────────────────────────────────────────────────────┐
+│                                            [☾  ☀]    │  ← theme toggle
+│                                                       │
+│                                                       │
+│                    GroundRoot                         │  ← huge wordmark, radial yellow→orange→red
+│                                                       │
+│        a tool to transcend through music              │  ← soft gray tagline
+│                                                       │
+│                                                       │
+│      ┌──────────────────────────────────────┐         │
+│      │  What's today's intention?           │         │  ← single calm input, Enter to begin
+│      └──────────────────────────────────────┘         │
+│                                                       │
+│                                                       │
+│   Assembly · Beatmaker · Library · Mastering · About  │  ← warm-yellow text links, dot separators
+│                                                       │
+└───────────────────────────────────────────────────────┘
+```
 
-- **Left: Sources panel** — tabs for **Spotify**, **Google Drive**, **Upload**, **Paste setlist**, **Photo of setlist**
-- **Center: Visual transition map** — your set as a flowing horizontal/vertical chain of track nodes
-- **Right: AI co-pilot chat** — visual, conversational, intention-aware
+### Changes
 
-### Left — Sources (import easily, listen freely)
+**1. `src/routes/_app.index.tsx` — full rewrite**
+- Drop Set name / Occasion / Vision form. Keep only one input: the intention.
+- Layout: vertically centered, generous whitespace, max-w ~720px.
+- Big `GroundRoot` wordmark (display font, ~clamp(64px, 11vw, 140px), tight tracking) using the new radial gradient utility.
+- Tagline below in muted gray: "a tool to transcend through music — sequence, shape, master".
+- Single intention input (ghost style, no visible border, soft underline, large placeholder "What's today's intention?"). Enter or arrow button creates a set and routes to `/assembly/$setId` (preserving the existing anonymous-session + insert flow, with intention saved).
+- Below the input: a single horizontal line of destination links separated by `·` dots:
+  - `Assembly` → `/assembly` (active)
+  - `Beatmaker`, `Library`, `Mastering`, `About` → render as disabled spans with `title="coming soon"` (kept warm-yellow but slightly dimmer + cursor-not-allowed)
+  - Color: warm yellow (`oklch(0.86 0.16 90)` in dark; existing primary in light), small uppercase tracking, subtle hover that lifts opacity.
 
-**Spotify connection**
+**2. `src/styles.css` — refine the palette + add texture**
+- Replace flat `--background` (dark) with a layered carbon look:
+  - Base color stays near-black but slightly warmer: `oklch(0.07 0.005 60)`.
+  - Add a body `background-image` stack on `.dark body`: a faint radial highlight (warm) + a tiny SVG noise data-URI for grain. Light theme keeps a clean cool gradient.
+- Replace the linear `--gradient-brand` with a **radial** gradient centered on the wordmark — yellow core, orange mid, red edge — and add a new utility `.text-gradient-brand-radial` that uses `background-size` tied to the element so the radial reads correctly on text.
+  - Dark: `radial-gradient(ellipse at center, oklch(0.92 0.19 95) 0%, oklch(0.78 0.21 60) 45%, oklch(0.55 0.25 25) 100%)`
+  - Light: `radial-gradient(ellipse at center, oklch(0.78 0.16 220) 0%, oklch(0.7 0.18 160) 50%, oklch(0.55 0.24 300) 100%)`
+- Soften the existing `text-gradient-brand-strong` so other places in the app (sidebar wordmark, headings) feel less "Word Art" — lower chroma (~0.16) and slightly darker stops.
+- Add `--color-warm-link: oklch(0.86 0.16 90)` (dark) / `oklch(0.55 0.18 70)` (light) and a `.text-warm-link` utility for the destination row.
 
-- Connect your Spotify account (OAuth, read-only — we never publish or modify anything)
-- Browse your playlists, pick tracks to pull into your set
-- Each imported track can be played in full plus metadata Spotify exposes: title, artist, BPM (tempo), key, energy, danceability, valence
-- For full-length playback while building: if you have Spotify Premium, the Spotify Web Playback SDK streams the full track inside the app. Without Premium, you get the 30s preview + all the metadata for sequencing decisions.
-- Honest note shown in UI: "Spotify tracks play here for set-building only. They aren't downloaded or exported."
+**3. `src/components/layout/AppShell.tsx`**
+- Sidebar wordmark uses the softened `text-gradient-brand-strong` (no change needed — it inherits).
+- No structural change otherwise.
 
-**Google Drive connection**
+### Behavior details
 
-- Connect your Drive & import select tracks with drag and drop
-- Browse folders, pick your field recordings, sound effects, voice notes, stems — anything audio
-- Files stream directly from Drive into the in-app waveform player; nothing is copied or re-hosted
-- Auto-detects audio files (MP3/WAV/M4A/FLAC/OGG)
+- Pressing Enter in the intention input or clicking the small arrow → same anonymous-session + `sets` insert flow that exists today, then `navigate({ to: "/assembly/$setId" })`. Empty intention is allowed (set is created with `title: "Untitled set"`).
+- The destination links: `Assembly` is a real `<Link>`; the four "coming soon" ones are spans (no nav, dimmer, tooltip). This matches the sidebar's existing `comingSoon` treatment.
+- Theme toggle continues to live top-right via `AppShell`.
 
-**Other sources** (already in the plan)
+### Out of scope
 
-- Direct upload (for files not in Drive) in accepted musicle formats (WAV, MP3, M4A, etc.)
-- Paste setlist as text → AI parses
-- Photo of paper setlist → AI OCR + parses
+- No changes to Assembly, Spotify panel, auth flow, or routes other than `/`.
+- No new routes for Beatmaker/Library/Mastering/About yet — they remain placeholders surfaced as text links.
 
-### Center — Visual transition map
-
-Not just a list. A **map** of your set:
-
-- Each track is a **node** with: title, artist, key (Camelot wheel color), BPM, energy ring, source icon (Spotify / Drive / Upload)
-- Nodes connect with a **flowing line** representing the transition. Line color/thickness encodes transition quality:
-  - Green flowing line = harmonically + rhythmically smooth
-  - Amber dashed = workable with effort (key clash, big BPM jump)
-  - Red dotted = abrupt (good for intentional drama, flagged so you know)
-- Hover/click a transition line → a **transition card** appears: "Camelot 8A → 9A (perfect +1), BPM 122→124, energy 6→7. Try a 16-bar EQ swap at 2:14. Drop a low-pass sweep here?"
-- **Sound-effect drop zones** between nodes — drag any Drive sound (riser, impact, vocal chop) onto a transition; it shows as a small chip on the connecting line
-- **Energy curve** runs underneath the map, with your intention's "ideal arc" ghosted behind so you see at a glance whether the story is landing
-- Drag nodes to reorder; the map re-evaluates all transitions live
-- **Cue points** per track: drag mix-in / mix-out markers on each node's mini-waveform
-
-### Right — AI co-pilot (visual + conversational)
-
-Since your ideation is done and you need help **building it right**, the co-pilot is tuned for sequencing and intention-fidelity, not brainstorming:
-
-- **Always sees**: your intention, the current map, the track you're hovering on
-- **Visual responses**: when it suggests a reorder, the map animates to show the proposed sequence side-by-side with current. Accept / tweak / reject.
-- **Quick-action chips**:
-  - *Does this match my intention?* → highlights tracks that drift, suggests fixes
-  - *Suggest the next track* → scans your imported pool (Spotify + Drive) for best fits
-  - *Where should I add a sound effect?* → highlights transitions that would benefit, suggests effects from your Drive folder
-  - *Review my arc* → annotates the energy curve with notes ("the dip at track 4 risks losing momentum given your 'slow burn → euphoric' intention")
-  - *Why does this transition work / not work?* → plain-language harmonic + rhythmic explanation
-- **Free-text chat**: "I want track 7 to feel like a sunrise — what should come right before?" Co-pilot answers and proposes a visual change you can apply.
-- **Tone**: encouraging, beginner-aware, never condescending. Celebrates good instincts.
-
-## Persistence & sessions
-
-- Auth so your set, intention, imported track references, cue points, and effect placements all save
-- We store **references** to Spotify track IDs and Drive file IDs, plus your annotations — never the audio itself
-
-## Honest limits (called out in UI)
-
-- **Spotify full playback** requires Premium (Web Playback SDK limitation). Free accounts get 30s previews + all metadata.
-- **Drive files** stream from your Drive; they need to remain accessible there.
-- This tool is for **building and rehearsing** sets. Performing live with real DJ software, or publishing/exporting a finished mix, comes in the later Mastering phase (and will require licensed audio you actually own).
-
-## Tech foundation
-
-- **Lovable Cloud** — auth, database (intentions, sets, track references, cue points, effect placements, transition notes)
-- **Spotify Web API** + **Web Playback SDK** — OAuth login, playlist browsing, metadata (BPM/key/energy via audio-features), in-app playback for Premium users
-- **Google Drive connector** (Lovable connector) — OAuth, browse, stream audio files
-- **Lovable AI** — intention extraction, transition analysis, sequencing suggestions, sound-effect placement ideas, OCR for paper setlists
-- **WaveSurfer.js** — waveforms for uploaded + Drive files; cue-point markers
-- **React Flow** (or similar) — the visual transition map with draggable nodes and animated transition lines
-- **Camelot wheel logic** — harmonic compatibility scoring driving the map's line colors
-
-## Design
-
-Clean & minimal — Notion/Linear calm. Off-white canvas, one warm coral accent for energy peaks and AI highlights. The transition map is the only "rich" visual — soft gradients, gentle motion, never busy. Optional dark mode for late-night sessions.
-
-## What's NOT in this phase (still architected for later)
-
-- Beatmaker, sound-archive browser, mastering, about/contribute — greyed nav items
-- Exporting a playable mixed file (needs licensing + DSP work — honest "later" item)
-- Live performance mode
