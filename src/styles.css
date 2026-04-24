@@ -60,143 +60,152 @@
 }
 
 /* ============================================================
- * LIGHT THEME — backlit tissue, faint membrane wash
+ * GROUNDROOT — LIGHT THEME (parchment & moss; daytime garden)
  * ============================================================ */
 :root {
   --radius: 0.85rem;
-  --background: oklch(0.96 0.022 130);
-  --foreground: oklch(0.28 0.04 145);
-  --card: oklch(0.98 0.018 120);
-  --card-foreground: oklch(0.28 0.04 145);
-  --popover: oklch(0.98 0.018 120);
-  --popover-foreground: oklch(0.28 0.04 145);
+  /* parchment #E8DCC4 ~ oklch(0.91 0.04 85) */
+  --background: oklch(0.93 0.035 85);
+  --foreground: oklch(0.24 0.04 50);
+  --card: oklch(0.96 0.025 85);
+  --card-foreground: oklch(0.24 0.04 50);
+  --popover: oklch(0.96 0.025 85);
+  --popover-foreground: oklch(0.24 0.04 50);
 
-  --primary: oklch(0.42 0.08 145);
-  --primary-foreground: oklch(0.96 0.02 85);
-  --primary-soft: oklch(0.86 0.06 130);
+  /* clay #8B5A2B ~ oklch(0.5 0.10 55) */
+  --primary: oklch(0.5 0.1 55);
+  --primary-foreground: oklch(0.96 0.025 85);
+  --primary-soft: oklch(0.84 0.06 70);
 
-  --secondary: oklch(0.92 0.03 110);
-  --secondary-foreground: oklch(0.28 0.04 145);
-  --muted: oklch(0.92 0.03 110);
-  --muted-foreground: oklch(0.45 0.04 130);
-  --accent: oklch(0.88 0.07 90);
-  --accent-foreground: oklch(0.32 0.1 60);
-  --destructive: oklch(0.55 0.2 30);
-  --destructive-foreground: oklch(0.96 0.02 85);
-  --border: oklch(0.85 0.04 120);
-  --input: oklch(0.88 0.03 120);
-  --ring: oklch(0.68 0.15 50);
+  --secondary: oklch(0.88 0.04 80);
+  --secondary-foreground: oklch(0.24 0.04 50);
+  --muted: oklch(0.88 0.04 80);
+  --muted-foreground: oklch(0.42 0.04 60);
+  /* honey #D4A574 ~ oklch(0.74 0.09 75) */
+  --accent: oklch(0.74 0.09 75);
+  --accent-foreground: oklch(0.24 0.05 50);
+  /* clay-red #C44536 ~ oklch(0.55 0.18 28) */
+  --destructive: oklch(0.55 0.18 28);
+  --destructive-foreground: oklch(0.96 0.025 85);
+  --border: oklch(0.78 0.045 70);
+  --input: oklch(0.82 0.04 70);
+  --ring: oklch(0.5 0.1 55);
 
-  --line-smooth: oklch(0.6 0.12 145);
-  --line-workable: oklch(0.7 0.13 70);
-  --line-abrupt: oklch(0.6 0.18 30);
+  --line-smooth: oklch(0.55 0.1 140);
+  --line-workable: oklch(0.65 0.11 70);
+  --line-abrupt: oklch(0.55 0.18 28);
 
-  --warm-link: oklch(0.55 0.14 50);
-  --membrane: oklch(0.38 0.06 175);
-  --bioluminescent: oklch(0.78 0.14 165);
+  /* moss green #6B8E4E ~ oklch(0.6 0.1 130) */
+  --warm-link: oklch(0.55 0.11 130);
+  --membrane: oklch(0.4 0.06 60);
+  --bioluminescent: oklch(0.74 0.12 110);
 
-  --chart-1: oklch(0.84 0.14 90);
-  --chart-2: oklch(0.68 0.15 50);
-  --chart-3: oklch(0.42 0.08 145);
-  --chart-4: oklch(0.6 0.12 110);
-  --chart-5: oklch(0.55 0.14 30);
+  --chart-1: oklch(0.74 0.09 75);
+  --chart-2: oklch(0.5 0.1 55);
+  --chart-3: oklch(0.55 0.11 130);
+  --chart-4: oklch(0.6 0.1 95);
+  --chart-5: oklch(0.55 0.18 28);
 
-  --sidebar: oklch(0.94 0.025 120);
-  --sidebar-foreground: oklch(0.32 0.05 145);
-  --sidebar-primary: oklch(0.42 0.08 145);
-  --sidebar-primary-foreground: oklch(0.96 0.02 85);
-  --sidebar-accent: oklch(0.88 0.06 80);
-  --sidebar-accent-foreground: oklch(0.32 0.08 60);
-  --sidebar-border: oklch(0.85 0.04 120);
-  --sidebar-ring: oklch(0.68 0.15 50);
+  --sidebar: oklch(0.9 0.04 80);
+  --sidebar-foreground: oklch(0.28 0.05 55);
+  --sidebar-primary: oklch(0.5 0.1 55);
+  --sidebar-primary-foreground: oklch(0.96 0.025 85);
+  --sidebar-accent: oklch(0.84 0.07 75);
+  --sidebar-accent-foreground: oklch(0.28 0.06 55);
+  --sidebar-border: oklch(0.78 0.045 70);
+  --sidebar-ring: oklch(0.5 0.1 55);
 
-  /* Brand gradient: glowing nucleus — softened chroma */
+  /* Brand gradient: clay → honey → moss (sunlit forest floor) */
   --gradient-brand: linear-gradient(
     100deg,
-    oklch(0.86 0.13 90) 0%,
-    oklch(0.72 0.14 60) 100%
+    oklch(0.5 0.1 55) 0%,
+    oklch(0.74 0.09 75) 100%
   );
   --gradient-brand-strong: linear-gradient(
     100deg,
-    oklch(0.78 0.12 90) 0%,
-    oklch(0.62 0.13 50) 100%
+    oklch(0.42 0.1 50) 0%,
+    oklch(0.55 0.11 130) 100%
   );
   --gradient-brand-radial: radial-gradient(
     ellipse at center,
-    oklch(0.9 0.14 95) 0%,
-    oklch(0.78 0.15 70) 55%,
-    oklch(0.62 0.14 45) 100%
+    oklch(0.78 0.1 80) 0%,
+    oklch(0.55 0.12 60) 55%,
+    oklch(0.4 0.1 45) 100%
   );
-  --shadow-glow: 0 20px 60px -20px oklch(0.68 0.15 50 / 0.3);
+  --shadow-glow: 0 20px 60px -20px oklch(0.5 0.12 55 / 0.35);
 }
 
 /* ============================================================
- * DARK THEME — wet biological canvas
+ * GROUNDROOT — DARK THEME (deep loam; underground roots)
  * ============================================================ */
 .dark {
-  --background: oklch(0.1 0.012 60);
-  --foreground: oklch(0.96 0.02 85);
-  --card: oklch(0.13 0.014 60);
-  --card-foreground: oklch(0.96 0.02 85);
-  --popover: oklch(0.13 0.014 60);
-  --popover-foreground: oklch(0.96 0.02 85);
+  /* deep loam #2A1F17 ~ oklch(0.18 0.025 55) */
+  --background: oklch(0.16 0.022 55);
+  --foreground: oklch(0.93 0.035 85);
+  /* warm bark #3D2E20 ~ oklch(0.25 0.03 55) */
+  --card: oklch(0.22 0.028 55);
+  --card-foreground: oklch(0.93 0.035 85);
+  --popover: oklch(0.22 0.028 55);
+  --popover-foreground: oklch(0.93 0.035 85);
 
-  --primary: oklch(0.84 0.14 90);
-  --primary-foreground: oklch(0.12 0.014 60);
-  --primary-soft: oklch(0.28 0.06 90);
+  /* honey becomes primary in dark to glow against loam */
+  --primary: oklch(0.74 0.09 75);
+  --primary-foreground: oklch(0.18 0.025 55);
+  --primary-soft: oklch(0.32 0.05 70);
 
-  --secondary: oklch(0.17 0.018 90);
-  --secondary-foreground: oklch(0.96 0.02 85);
-  --muted: oklch(0.17 0.018 90);
-  --muted-foreground: oklch(0.7 0.025 90);
-  --accent: oklch(0.24 0.05 145);
-  --accent-foreground: oklch(0.86 0.1 100);
-  --destructive: oklch(0.6 0.2 30);
-  --destructive-foreground: oklch(0.96 0.02 85);
-  --border: oklch(0.42 0.06 145 / 28%);
-  --input: oklch(1 0 0 / 10%);
-  --ring: oklch(0.84 0.14 90);
+  --secondary: oklch(0.26 0.03 60);
+  --secondary-foreground: oklch(0.93 0.035 85);
+  --muted: oklch(0.26 0.03 60);
+  --muted-foreground: oklch(0.7 0.04 80);
+  --accent: oklch(0.55 0.11 130);
+  --accent-foreground: oklch(0.93 0.035 85);
+  --destructive: oklch(0.6 0.18 28);
+  --destructive-foreground: oklch(0.93 0.035 85);
+  --border: oklch(0.5 0.05 60 / 30%);
+  --input: oklch(1 0 0 / 8%);
+  --ring: oklch(0.74 0.09 75);
 
-  --line-smooth: oklch(0.7 0.12 145);
-  --line-workable: oklch(0.84 0.14 90);
-  --line-abrupt: oklch(0.68 0.15 50);
+  --line-smooth: oklch(0.7 0.1 130);
+  --line-workable: oklch(0.74 0.09 75);
+  --line-abrupt: oklch(0.65 0.16 30);
 
-  --warm-link: oklch(0.84 0.14 90);
-  --membrane: oklch(0.38 0.06 175);
-  --bioluminescent: oklch(0.78 0.14 165);
+  /* moss link, brighter for legibility on loam */
+  --warm-link: oklch(0.72 0.1 130);
+  --membrane: oklch(0.4 0.06 60);
+  --bioluminescent: oklch(0.78 0.12 110);
 
-  --chart-1: oklch(0.84 0.14 90);
-  --chart-2: oklch(0.68 0.15 50);
-  --chart-3: oklch(0.55 0.1 145);
-  --chart-4: oklch(0.7 0.12 70);
-  --chart-5: oklch(0.96 0.02 85);
+  --chart-1: oklch(0.74 0.09 75);
+  --chart-2: oklch(0.5 0.1 55);
+  --chart-3: oklch(0.55 0.11 130);
+  --chart-4: oklch(0.65 0.1 90);
+  --chart-5: oklch(0.93 0.035 85);
 
-  --sidebar: oklch(0.08 0.012 60);
-  --sidebar-foreground: oklch(0.92 0.02 85);
-  --sidebar-primary: oklch(0.84 0.14 90);
-  --sidebar-primary-foreground: oklch(0.12 0.014 60);
-  --sidebar-accent: oklch(0.22 0.04 145);
-  --sidebar-accent-foreground: oklch(0.86 0.1 100);
-  --sidebar-border: oklch(0.42 0.06 145 / 22%);
-  --sidebar-ring: oklch(0.84 0.14 90);
+  --sidebar: oklch(0.13 0.02 55);
+  --sidebar-foreground: oklch(0.9 0.04 80);
+  --sidebar-primary: oklch(0.74 0.09 75);
+  --sidebar-primary-foreground: oklch(0.18 0.025 55);
+  --sidebar-accent: oklch(0.26 0.04 100);
+  --sidebar-accent-foreground: oklch(0.9 0.04 80);
+  --sidebar-border: oklch(0.5 0.05 60 / 24%);
+  --sidebar-ring: oklch(0.74 0.09 75);
 
   --gradient-brand: linear-gradient(
     100deg,
-    oklch(0.88 0.14 95) 0%,
-    oklch(0.7 0.15 55) 100%
+    oklch(0.74 0.09 75) 0%,
+    oklch(0.55 0.11 130) 100%
   );
   --gradient-brand-strong: linear-gradient(
     100deg,
-    oklch(0.82 0.13 90) 0%,
-    oklch(0.66 0.14 55) 100%
+    oklch(0.78 0.1 80) 0%,
+    oklch(0.6 0.12 130) 100%
   );
   --gradient-brand-radial: radial-gradient(
     ellipse at center,
-    oklch(0.92 0.15 95) 0%,
-    oklch(0.8 0.16 70) 55%,
-    oklch(0.66 0.15 45) 100%
+    oklch(0.85 0.1 85) 0%,
+    oklch(0.7 0.12 70) 55%,
+    oklch(0.5 0.12 55) 100%
   );
-  --shadow-glow: 0 20px 60px -20px oklch(0.78 0.16 55 / 0.4);
+  --shadow-glow: 0 20px 60px -20px oklch(0.74 0.1 75 / 0.4);
 }
 
 @layer base {
@@ -220,18 +229,21 @@
     inset: 0;
     pointer-events: none;
     z-index: 0;
-    background-image: url("/osmose-bg.png");
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    opacity: 0.85;
+    /* GroundRoot: subtle paper-grain wash via gradient (no external image) */
+    background-image:
+      radial-gradient(ellipse 80% 60% at 50% 100%, oklch(0.5 0.1 55 / 0.18) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 40% at 20% 0%, oklch(0.74 0.09 75 / 0.10) 0%, transparent 70%);
+    opacity: 1;
   }
 
   .dark body::before {
-    opacity: 0.55;
+    background-image:
+      radial-gradient(ellipse 80% 60% at 50% 100%, oklch(0.18 0.025 55 / 0.6) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 40% at 20% 0%, oklch(0.74 0.09 75 / 0.06) 0%, transparent 70%);
+    opacity: 1;
   }
 
-  /* Drifting cellular blob layer */
+  /* Drifting earth-tone blob layer */
   body::after {
     content: "";
     position: fixed;
@@ -239,20 +251,20 @@
     pointer-events: none;
     z-index: 0;
     background-image:
-      radial-gradient(ellipse 40% 35% at 18% 22%, oklch(0.84 0.14 90 / 0.08) 0%, transparent 70%),
-      radial-gradient(ellipse 45% 40% at 82% 28%, oklch(0.42 0.08 145 / 0.07) 0%, transparent 70%),
-      radial-gradient(ellipse 50% 45% at 25% 80%, oklch(0.38 0.06 175 / 0.08) 0%, transparent 70%),
-      radial-gradient(ellipse 38% 35% at 78% 75%, oklch(0.68 0.15 50 / 0.06) 0%, transparent 70%);
+      radial-gradient(ellipse 40% 35% at 18% 22%, oklch(0.74 0.09 75 / 0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 45% 40% at 82% 28%, oklch(0.55 0.11 130 / 0.07) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 45% at 25% 80%, oklch(0.5 0.1 55 / 0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 38% 35% at 78% 75%, oklch(0.55 0.18 28 / 0.05) 0%, transparent 70%);
     filter: blur(20px);
     animation: cellDrift 60s ease-in-out infinite alternate;
   }
 
   .dark body::after {
     background-image:
-      radial-gradient(ellipse 40% 35% at 18% 22%, oklch(0.84 0.14 90 / 0.10) 0%, transparent 70%),
-      radial-gradient(ellipse 45% 40% at 82% 28%, oklch(0.42 0.08 145 / 0.10) 0%, transparent 70%),
-      radial-gradient(ellipse 50% 45% at 25% 80%, oklch(0.38 0.06 175 / 0.10) 0%, transparent 70%),
-      radial-gradient(ellipse 38% 35% at 78% 75%, oklch(0.68 0.15 50 / 0.08) 0%, transparent 70%);
+      radial-gradient(ellipse 40% 35% at 18% 22%, oklch(0.74 0.09 75 / 0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 45% 40% at 82% 28%, oklch(0.55 0.11 130 / 0.10) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 45% at 25% 80%, oklch(0.5 0.1 55 / 0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 38% 35% at 78% 75%, oklch(0.55 0.18 28 / 0.08) 0%, transparent 70%);
   }
 
   /* Grain overlay (subtle tactile texture) */
@@ -276,20 +288,26 @@
     100% { transform: translate(-1.5%, 2%) scale(1.01); }
   }
 
-  @keyframes pioBreath {
+  @keyframes rootBreath {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.015); }
   }
 
-  @keyframes plantSway {
+  @keyframes rootSway {
     0%, 100% { transform: rotate(-0.6deg); }
     50% { transform: rotate(0.6deg); }
   }
 
+  @keyframes rootGrow {
+    from { stroke-dashoffset: 1; }
+    to { stroke-dashoffset: 0; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     body::after { animation: none; }
-    .pio-breath { animation: none; }
-    [style*="plantSway"] { animation: none !important; }
+    .root-breath { animation: none; }
+    [style*="rootSway"] { animation: none !important; }
+    .root-grow { animation: none !important; stroke-dashoffset: 0 !important; }
   }
 
   h1, h2, h3, .font-display {
@@ -337,8 +355,15 @@
     color: var(--warm-link);
   }
 
-  .pio-breath {
-    animation: pioBreath 6s ease-in-out infinite;
+  .root-breath {
+    animation: rootBreath 6s ease-in-out infinite;
     transform-origin: center;
+  }
+
+  .root-grow {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    pathLength: 1;
+    animation: rootGrow 2.4s ease-out forwards;
   }
 }

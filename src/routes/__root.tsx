@@ -3,7 +3,7 @@ import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/r
 import appCss from "../styles.css?url";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
-import logoUrl from "@/assets/pio-near-logo.png";
+import logoUrl from "@/assets/groundroot-logo.png";
 
 function NotFoundComponent() {
   return (
@@ -32,17 +32,17 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Pio - Near — Connect the dots" },
+      { title: "GroundRoot — Where every set takes root" },
       {
         name: "description",
         content:
-          "Pio - Near — Connect the dots. A calm, AI-assisted studio to sequence, shape, and master sets with intention.",
+          "GroundRoot — Where every set takes root. A calm, AI-assisted studio to sequence, shape, and master sets with intention.",
       },
-      { name: "author", content: "Pio - Near" },
-      { property: "og:title", content: "Pio - Near — Connect the dots" },
+      { name: "author", content: "GroundRoot" },
+      { property: "og:title", content: "GroundRoot — Where every set takes root" },
       {
         property: "og:description",
-        content: "Connect the dots. Sequence, shape, master.",
+        content: "Where every set takes root. Sequence, shape, master.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

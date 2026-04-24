@@ -1,6 +1,6 @@
 import { Link, Outlet } from "@tanstack/react-router";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
-import logo from "@/assets/pio-near-logo.png";
+import logo from "@/assets/groundroot-logo.png";
 
 export function AppShell() {
   return (
@@ -10,9 +10,9 @@ export function AppShell() {
           to="/welcome"
           className="pointer-events-auto flex items-center gap-2"
         >
-          <img src={logo} alt="Pio - Near" className="h-9 w-9 object-contain" />
+          <img src={logo} alt="GroundRoot" className="h-9 w-9 object-contain" width={36} height={36} />
           <span className="font-display text-lg text-gradient-brand-strong">
-            Pio - Near
+            GroundRoot
           </span>
         </Link>
         <div className="pointer-events-auto">

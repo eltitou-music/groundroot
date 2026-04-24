@@ -9,8 +9,8 @@ type ThemeContextValue = {
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
-const STORAGE_KEY = "pio-near-theme";
-const LEGACY_STORAGE_KEY = "osmose-theme";
+const STORAGE_KEY = "groundroot-theme";
+const LEGACY_KEYS = ["pio-near-theme", "osmose-theme"] as const;
 
 function applyTheme(theme: Theme) {
   if (typeof document === "undefined") return;
@@ -26,10 +26,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     try {
       let stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
       if (!stored) {
-        const legacy = localStorage.getItem(LEGACY_STORAGE_KEY) as Theme | null;
-        if (legacy === "light" || legacy === "dark") {
-          stored = legacy;
-          try { localStorage.setItem(STORAGE_KEY, legacy); } catch { /* ignore */ }
+        for (const key of LEGACY_KEYS) {
+          const legacy = localStorage.getItem(key) as Theme | null;
+          if (legacy === "light" || legacy === "dark") {
+            stored = legacy;
+            try { localStorage.setItem(STORAGE_KEY, legacy); } catch { /* ignore */ }
+            break;
+          }
         }
       }
       const initial: Theme = stored === "light" || stored === "dark" ? stored : "dark";
