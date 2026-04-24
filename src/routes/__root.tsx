@@ -3,6 +3,7 @@ import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/r
 import appCss from "../styles.css?url";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import logoUrl from "@/assets/groundroot-logo.png";
 
 function NotFoundComponent() {
   return (
@@ -31,23 +32,28 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Fluid DJ — build sets with intention" },
+      { title: "GroundRoot — a tool to transcend through music" },
       {
         name: "description",
         content:
-          "A calm, AI-assisted studio for sequencing your DJ sets. Import from Spotify and Google Drive, see transitions visually, build with intention.",
+          "GroundRoot is a calm, AI-assisted studio to sequence, shape, and master sets with intention.",
       },
-      { name: "author", content: "Fluid DJ" },
-      { property: "og:title", content: "Fluid DJ — build sets with intention" },
+      { name: "author", content: "GroundRoot" },
+      { property: "og:title", content: "GroundRoot — a tool to transcend through music" },
       {
         property: "og:description",
-        content: "A calm, AI-assisted studio for sequencing your DJ sets.",
+        content: "Sequence, shape, master. A calm studio for building sets with intention.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
+      {
+        rel: "icon",
+        type: "image/png",
+        href: logoUrl,
+      },
       {
         rel: "stylesheet",
         href: appCss,

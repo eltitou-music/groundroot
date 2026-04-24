@@ -5,6 +5,7 @@ import { ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import logo from "@/assets/groundroot-logo.png";
 
 export const Route = createFileRoute("/_app/")({
   component: IntroPage,
@@ -12,15 +13,14 @@ export const Route = createFileRoute("/_app/")({
 
 type Destination = {
   label: string;
-  action?: "start";
-  to?: "/beatmaker" | "/library" | "/mastering" | "/about";
+  to: "/beatmaker" | "/library" | "/mastering" | "/assembly" | "/about";
 };
 
 const destinations: Destination[] = [
   { label: "Beatmaker", to: "/beatmaker" },
   { label: "Library", to: "/library" },
   { label: "Mastering", to: "/mastering" },
-  { label: "Assembly", action: "start" },
+  { label: "Assembly", to: "/assembly" },
   { label: "About", to: "/about" },
 ];
 
@@ -79,6 +79,14 @@ function IntroPage() {
   return (
     <div className="relative flex min-h-[calc(100vh-4rem)] items-center justify-center px-6 py-20">
       <div className="mx-auto flex w-full max-w-[720px] flex-col items-center text-center">
+        <motion.img
+          src={logo}
+          alt="GroundRoot"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 1, ease: "easeOut" }}
+          className="mb-8 h-24 w-24 object-contain md:h-28 md:w-28"
+        />
         <motion.h1
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
@@ -145,23 +153,12 @@ function IntroPage() {
         >
           {destinations.map((dest, i) => (
             <span key={dest.label} className="flex items-center gap-3">
-              {dest.to ? (
-                <Link
-                  to={dest.to}
-                  className="text-warm-link transition-opacity hover:opacity-70"
-                >
-                  {dest.label}
-                </Link>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleStart}
-                  disabled={saving}
-                  className="text-warm-link transition-opacity hover:opacity-70 disabled:opacity-40"
-                >
-                  {dest.label}
-                </button>
-              )}
+              <Link
+                to={dest.to}
+                className="text-warm-link transition-opacity hover:opacity-70"
+              >
+                {dest.label}
+              </Link>
               {i < destinations.length - 1 && (
                 <span className="text-warm-link/30">·</span>
               )}

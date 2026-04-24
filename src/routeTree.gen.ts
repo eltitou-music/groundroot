@@ -15,6 +15,7 @@ import { Route as SpotifyCallbackRouteImport } from './routes/spotify.callback'
 import { Route as AppMasteringRouteImport } from './routes/_app.mastering'
 import { Route as AppLibraryRouteImport } from './routes/_app.library'
 import { Route as AppBeatmakerRouteImport } from './routes/_app.beatmaker'
+import { Route as AppAssemblyRouteImport } from './routes/_app.assembly'
 import { Route as AppAboutRouteImport } from './routes/_app.about'
 import { Route as AppAssemblySetIdRouteImport } from './routes/_app.assembly.$setId'
 
@@ -47,20 +48,26 @@ const AppBeatmakerRoute = AppBeatmakerRouteImport.update({
   path: '/beatmaker',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAssemblyRoute = AppAssemblyRouteImport.update({
+  id: '/assembly',
+  path: '/assembly',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAboutRoute = AppAboutRouteImport.update({
   id: '/about',
   path: '/about',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAssemblySetIdRoute = AppAssemblySetIdRouteImport.update({
-  id: '/assembly/$setId',
-  path: '/assembly/$setId',
-  getParentRoute: () => AppRoute,
+  id: '/$setId',
+  path: '/$setId',
+  getParentRoute: () => AppAssemblyRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/about': typeof AppAboutRoute
+  '/assembly': typeof AppAssemblyRouteWithChildren
   '/beatmaker': typeof AppBeatmakerRoute
   '/library': typeof AppLibraryRoute
   '/mastering': typeof AppMasteringRoute
@@ -69,6 +76,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/about': typeof AppAboutRoute
+  '/assembly': typeof AppAssemblyRouteWithChildren
   '/beatmaker': typeof AppBeatmakerRoute
   '/library': typeof AppLibraryRoute
   '/mastering': typeof AppMasteringRoute
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_app/about': typeof AppAboutRoute
+  '/_app/assembly': typeof AppAssemblyRouteWithChildren
   '/_app/beatmaker': typeof AppBeatmakerRoute
   '/_app/library': typeof AppLibraryRoute
   '/_app/mastering': typeof AppMasteringRoute
@@ -92,6 +101,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/assembly'
     | '/beatmaker'
     | '/library'
     | '/mastering'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/about'
+    | '/assembly'
     | '/beatmaker'
     | '/library'
     | '/mastering'
@@ -110,6 +121,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/_app/about'
+    | '/_app/assembly'
     | '/_app/beatmaker'
     | '/_app/library'
     | '/_app/mastering'
@@ -167,6 +179,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBeatmakerRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/assembly': {
+      id: '/_app/assembly'
+      path: '/assembly'
+      fullPath: '/assembly'
+      preLoaderRoute: typeof AppAssemblyRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/about': {
       id: '/_app/about'
       path: '/about'
@@ -176,30 +195,42 @@ declare module '@tanstack/react-router' {
     }
     '/_app/assembly/$setId': {
       id: '/_app/assembly/$setId'
-      path: '/assembly/$setId'
+      path: '/$setId'
       fullPath: '/assembly/$setId'
       preLoaderRoute: typeof AppAssemblySetIdRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppAssemblyRoute
     }
   }
 }
 
+interface AppAssemblyRouteChildren {
+  AppAssemblySetIdRoute: typeof AppAssemblySetIdRoute
+}
+
+const AppAssemblyRouteChildren: AppAssemblyRouteChildren = {
+  AppAssemblySetIdRoute: AppAssemblySetIdRoute,
+}
+
+const AppAssemblyRouteWithChildren = AppAssemblyRoute._addFileChildren(
+  AppAssemblyRouteChildren,
+)
+
 interface AppRouteChildren {
   AppAboutRoute: typeof AppAboutRoute
+  AppAssemblyRoute: typeof AppAssemblyRouteWithChildren
   AppBeatmakerRoute: typeof AppBeatmakerRoute
   AppLibraryRoute: typeof AppLibraryRoute
   AppMasteringRoute: typeof AppMasteringRoute
   AppIndexRoute: typeof AppIndexRoute
-  AppAssemblySetIdRoute: typeof AppAssemblySetIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAboutRoute: AppAboutRoute,
+  AppAssemblyRoute: AppAssemblyRouteWithChildren,
   AppBeatmakerRoute: AppBeatmakerRoute,
   AppLibraryRoute: AppLibraryRoute,
   AppMasteringRoute: AppMasteringRoute,
   AppIndexRoute: AppIndexRoute,
-  AppAssemblySetIdRoute: AppAssemblySetIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

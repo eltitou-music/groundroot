@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation } from "@tanstack/react-router";
 import { Sparkles, Layers, Music, Library, Sliders, Info, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import logo from "@/assets/groundroot-logo.png";
 
 type NavItem = {
   label: string;
@@ -15,7 +16,7 @@ const navItems: NavItem[] = [
   { label: "Beatmaker", to: "/beatmaker", icon: Music },
   { label: "Library", to: "/library", icon: Library },
   { label: "Mastering", to: "/mastering", icon: Sliders },
-  { label: "Assembly", to: "/", icon: Layers },
+  { label: "Assembly", to: "/assembly", icon: Layers },
   { label: "About", to: "/about", icon: Info },
 ];
 
@@ -27,9 +28,11 @@ export function AppShell() {
       <aside className="hidden w-56 flex-col border-r border-border bg-sidebar px-3 py-6 md:flex">
         <div className="px-3 pb-8">
           <Link to="/" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-brand text-background shadow-[var(--shadow-glow)]">
-              <span className="text-sm font-semibold">G</span>
-            </span>
+            <img
+              src={logo}
+              alt="GroundRoot"
+              className="h-8 w-8 object-contain"
+            />
             <span className="font-display text-lg text-gradient-brand-strong">
               GroundRoot
             </span>
