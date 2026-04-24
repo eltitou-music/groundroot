@@ -1,8 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { ChevronLeft, Download, Sparkles } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ChevronLeft, Download, Sparkles, Play, Pause, Volume2, Sliders, Maximize2, Layers } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Slider } from "@/components/ui/slider";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { zodValidator } from "@tanstack/zod-adapter";
 import { intentionSearchSchema } from "@/utils/intention";
@@ -29,6 +30,7 @@ const PRESETS = [
 
 function MasteringPage() {
   const { intention } = Route.useSearch();
+  const navigate = useNavigate();
   const [lufs, setLufs] = useState(-14);
   const [low, setLow] = useState(0);
   const [mid, setMid] = useState(0);
@@ -36,6 +38,10 @@ function MasteringPage() {
   const [width, setWidth] = useState(50);
   const [glue, setGlue] = useState(40);
   const [activePreset, setActivePreset] = useState<string | null>("Streaming (DSP)");
+  const [playing, setPlaying] = useState(false);
+  const [playhead, setPlayhead] = useState(0); // 0..1
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const rafRef = useRef<number | null>(null);
 
   const applyPreset = (p: (typeof PRESETS)[number]) => {
     setLufs(p.lufs); setLow(p.low); setMid(p.mid); setHigh(p.high);
@@ -51,16 +57,120 @@ function MasteringPage() {
     return { norm, peak, safe };
   }, [lufs]);
 
+  // Synthesized waveform — until a real assembled set is available, we render
+  // a credible-looking envelope so the page is never empty. Deterministic.
+  const samples = useMemo(() => {
+    const N = 480;
+    const arr = new Float32Array(N);
+    let seed = 1337;
+    const rand = () => {
+      seed = (seed * 9301 + 49297) % 233280;
+      return seed / 233280;
+    };
+    for (let i = 0; i < N; i++) {
+      const t = i / N;
+      // Three-act envelope: rise, sustain, drop
+      const env =
+        Math.sin(Math.PI * t) * 0.7 +
+        Math.sin(Math.PI * 6 * t) * 0.08 * (1 - t) +
+        Math.sin(Math.PI * 14 * t) * 0.05;
+      const noise = (rand() - 0.5) * 0.25;
+      arr[i] = Math.max(-1, Math.min(1, env + noise));
+    }
+    return arr;
+  }, []);
+
+  // Draw waveform whenever EQ/width/glue change so the visual reflects mastering moves.
+  useEffect(() => {
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const ctx = cv.getContext("2d");
+    if (!ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    const W = cv.clientWidth;
+    const H = cv.clientHeight;
+    cv.width = W * dpr;
+    cv.height = H * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, W, H);
+
+    const mid = H / 2;
+    const widthScale = 0.5 + (width / 100) * 0.6; // stereo width visual proxy
+    const eqBias = (low * 0.04 + mid * 0.02 + high * 0.06);
+    const glueScale = 1 - (glue / 100) * 0.18; // glue → softer peaks
+
+    // Filled waveform
+    ctx.beginPath();
+    ctx.moveTo(0, mid);
+    for (let i = 0; i < samples.length; i++) {
+      const x = (i / samples.length) * W;
+      const v = samples[i] * widthScale * glueScale + eqBias * 0.05;
+      const y = mid - v * (H * 0.42);
+      ctx.lineTo(x, y);
+    }
+    for (let i = samples.length - 1; i >= 0; i--) {
+      const x = (i / samples.length) * W;
+      const v = samples[i] * widthScale * glueScale + eqBias * 0.05;
+      const y = mid + v * (H * 0.42);
+      ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, 0, W, 0);
+    grad.addColorStop(0, "oklch(0.62 0.16 30 / 0.85)");
+    grad.addColorStop(0.5, "oklch(0.78 0.14 60 / 0.85)");
+    grad.addColorStop(1, "oklch(0.55 0.13 150 / 0.85)");
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Centerline
+    ctx.strokeStyle = "oklch(0.5 0 0 / 0.25)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, mid);
+    ctx.lineTo(W, mid);
+    ctx.stroke();
+  }, [samples, low, high, width, glue]);
+
+  // Animate playhead (cosmetic — no audio yet)
+  useEffect(() => {
+    if (!playing) {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      return;
+    }
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = (now - last) / 1000;
+      last = now;
+      setPlayhead((p) => {
+        const next = p + dt / 60; // ~60s loop
+        return next > 1 ? 0 : next;
+      });
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [playing]);
+
+  const onScrub = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    setPlayhead(Math.max(0, Math.min(1, x)));
+  };
+
   return (
     <div className="relative flex min-h-[calc(100vh-4rem)] flex-col items-center px-4 py-20 md:px-6">
       <div className="mx-auto w-full max-w-4xl">
-        <Link
-          to="/welcome"
+        <button
+          type="button"
+          onClick={() => navigate({ to: "/welcome" })}
           className="mb-10 inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-warm-link/70 transition-opacity hover:opacity-100"
         >
           <ChevronLeft className="h-3 w-3" />
           Back
-        </Link>
+        </button>
 
         <motion.h1
           initial={{ opacity: 0, y: 18 }}
@@ -87,39 +197,19 @@ function MasteringPage() {
           the final pass — level, glue, and translate your set so it lands the same everywhere.
         </motion.p>
 
-        {/* Presets */}
+        {/* Effects rail — at the top */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="mt-10"
+          className="mt-10 flex flex-wrap items-center gap-2 rounded-2xl border border-border/40 bg-card/40 p-2 backdrop-blur-sm"
         >
-          <p className="mb-3 text-xs uppercase tracking-[0.2em] text-muted-foreground">Translate to</p>
-          <div className="flex flex-wrap gap-2">
-            {PRESETS.map((p) => (
-              <button
-                key={p.name}
-                onClick={() => applyPreset(p)}
-                className={cn(
-                  "rounded-full border px-4 py-2 text-xs backdrop-blur-sm transition-all",
-                  activePreset === p.name
-                    ? "border-warm-link bg-warm-link/15 text-foreground"
-                    : "border-border/60 bg-card/40 text-muted-foreground hover:border-warm-link/60 hover:text-foreground",
-                )}
-              >
-                {p.name}
-              </button>
-            ))}
-          </div>
-        </motion.div>
+          <p className="px-3 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Effects</p>
 
-        <div className="mt-8 grid gap-6 md:grid-cols-[1fr_280px]">
-          {/* Controls */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="rounded-2xl border border-border/40 bg-card/40 p-6 backdrop-blur-sm"
+          <EffectChip
+            icon={<Volume2 className="h-3.5 w-3.5" />}
+            label="Loudness"
+            value={`${lufs} LUFS`}
           >
             <ControlRow
               label="Loudness target"
@@ -130,74 +220,171 @@ function MasteringPage() {
               v={lufs}
               onChange={(n) => { setLufs(n); setActivePreset(null); }}
             />
-            <Divider />
-            <p className="mb-4 text-[10px] uppercase tracking-[0.22em] text-warm-link/70">3-band EQ</p>
+          </EffectChip>
+
+          <EffectChip
+            icon={<Sliders className="h-3.5 w-3.5" />}
+            label="EQ"
+            value={`${fmtDb(low)} · ${fmtDb(mid)} · ${fmtDb(high)}`}
+          >
             <ControlRow label="Low"  value={fmtDb(low)}  min={-6} max={6} step={0.5} v={low}  onChange={(n) => { setLow(n); setActivePreset(null); }} />
             <ControlRow label="Mid"  value={fmtDb(mid)}  min={-6} max={6} step={0.5} v={mid}  onChange={(n) => { setMid(n); setActivePreset(null); }} />
             <ControlRow label="High" value={fmtDb(high)} min={-6} max={6} step={0.5} v={high} onChange={(n) => { setHigh(n); setActivePreset(null); }} />
-            <Divider />
-            <ControlRow label="Stereo width" value={`${width}%`} min={0} max={100} step={1} v={width} onChange={(n) => { setWidth(n); setActivePreset(null); }} />
-            <ControlRow label="Bus glue"     value={`${glue}%`}  min={0} max={100} step={1} v={glue}  onChange={(n) => { setGlue(n); setActivePreset(null); }} />
-          </motion.div>
+          </EffectChip>
 
-          {/* Meter + export */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            className="flex flex-col gap-4"
+          <EffectChip
+            icon={<Maximize2 className="h-3.5 w-3.5" />}
+            label="Width"
+            value={`${width}%`}
           >
-            <div className="rounded-2xl border border-border/40 bg-card/40 p-5 backdrop-blur-sm">
-              <p className="mb-3 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Output meter</p>
-              <div className="relative h-40 overflow-hidden rounded-lg bg-background/60">
-                <div
-                  className="absolute inset-x-2 bottom-2 rounded-md transition-[height] duration-300"
-                  style={{
-                    height: `${meter.norm * 100}%`,
-                    background: "linear-gradient(180deg, oklch(0.84 0.14 90) 0%, oklch(0.68 0.17 50) 60%, oklch(0.55 0.2 30) 100%)",
-                    opacity: 0.85,
-                  }}
-                />
-                {/* Peak line */}
-                <div
-                  className="absolute inset-x-2 h-px bg-foreground/70"
-                  style={{ bottom: `calc(${meter.peak * 100}% + 0.5rem)` }}
-                />
-              </div>
-              <div className="mt-3 flex items-center justify-between text-xs">
-                <span className="font-mono tabular-nums text-foreground">{lufs} LUFS</span>
-                <span className={cn("rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.18em]", meter.safe ? "bg-primary-soft text-accent-foreground" : "bg-destructive/20 text-destructive")}>
-                  {meter.safe ? "Safe" : "Hot"}
-                </span>
-              </div>
-            </div>
+            <ControlRow label="Stereo width" value={`${width}%`} min={0} max={100} step={1} v={width} onChange={(n) => { setWidth(n); setActivePreset(null); }} />
+          </EffectChip>
 
-            <div className="rounded-2xl border border-warm-link/40 bg-warm-link/10 p-5 backdrop-blur-sm">
-              <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-warm-link">
-                <Sparkles className="h-3.5 w-3.5" />
-                Export
-              </div>
-              <p className="text-xs text-muted-foreground">
-                WAV 24-bit · 44.1 kHz · normalized to your target.
-              </p>
-              <button
-                disabled
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-warm-link/30 px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-warm-link opacity-70"
-                title="Available once Assembly is finished"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Render master
-              </button>
+          <EffectChip
+            icon={<Layers className="h-3.5 w-3.5" />}
+            label="Glue"
+            value={`${glue}%`}
+          >
+            <ControlRow label="Bus glue" value={`${glue}%`} min={0} max={100} step={1} v={glue} onChange={(n) => { setGlue(n); setActivePreset(null); }} />
+          </EffectChip>
+        </motion.div>
+
+        {/* Full-width waveform — center, dominant */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="mt-6 rounded-2xl border border-border/40 bg-card/40 p-4 backdrop-blur-sm"
+        >
+          <div className="flex items-center justify-between gap-3 px-1 pb-3">
+            <button
+              onClick={() => setPlaying((p) => !p)}
+              aria-label={playing ? "Pause" : "Play"}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform hover:scale-105"
+            >
+              {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 translate-x-[1px]" />}
+            </button>
+            <div className="flex-1 text-center text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+              Full set preview
             </div>
-          </motion.div>
-        </div>
+            <div className="font-mono text-xs tabular-nums text-foreground">
+              {fmtTime(playhead * 60)} / 01:00
+            </div>
+          </div>
+
+          <div
+            onClick={onScrub}
+            className="relative h-44 cursor-pointer overflow-hidden rounded-lg bg-background/60"
+          >
+            <canvas ref={canvasRef} className="h-full w-full" />
+            {/* Playhead */}
+            <div
+              className="pointer-events-none absolute top-0 bottom-0 w-px bg-warm-link"
+              style={{ left: `${playhead * 100}%` }}
+            >
+              <div className="absolute -top-1 -left-1 h-2 w-2 rounded-full bg-warm-link shadow-[0_0_10px_oklch(0.78_0.14_60)]" />
+            </div>
+          </div>
+
+          {/* Thin LUFS strip under the waveform */}
+          <div className="mt-3 flex items-center gap-3">
+            <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Output</span>
+            <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-background/60">
+              <div
+                className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-300"
+                style={{
+                  width: `${meter.norm * 100}%`,
+                  background: "linear-gradient(90deg, oklch(0.55 0.13 150) 0%, oklch(0.78 0.14 60) 60%, oklch(0.62 0.18 30) 100%)",
+                }}
+              />
+            </div>
+            <span className="font-mono text-xs tabular-nums text-foreground">{lufs} LUFS</span>
+            <span className={cn("rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.18em]", meter.safe ? "bg-primary-soft text-accent-foreground" : "bg-destructive/20 text-destructive")}>
+              {meter.safe ? "Safe" : "Hot"}
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Bottom: presets + export */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.5 }}
+          className="mt-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Translate to</p>
+            <div className="flex flex-wrap gap-2">
+              {PRESETS.map((p) => (
+                <button
+                  key={p.name}
+                  onClick={() => applyPreset(p)}
+                  className={cn(
+                    "rounded-full border px-4 py-2 text-xs backdrop-blur-sm transition-all",
+                    activePreset === p.name
+                      ? "border-warm-link bg-warm-link/15 text-foreground"
+                      : "border-border/60 bg-card/40 text-muted-foreground hover:border-warm-link/60 hover:text-foreground",
+                  )}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button
+            disabled
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-warm-link/30 px-5 py-3 text-xs uppercase tracking-[0.18em] text-warm-link opacity-70"
+            title="Available once Assembly is finished"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Render master
+          </button>
+        </motion.div>
 
         <p className="mt-6 text-xs italic text-muted-foreground/70">
-          A first draft. Real DSP, EQ matching against reference tracks, and one-click export are next.
+          <Sparkles className="mr-1 inline h-3 w-3" />
+          Preview waveform — once Assembly stitches your set, the real audio will load here.
         </p>
       </div>
     </div>
   );
+}
+
+function EffectChip({
+  icon,
+  label,
+  value,
+  children,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/40 px-3 py-1.5 text-xs text-foreground transition-all hover:border-warm-link/60"
+          title={`${label} · ${value}`}
+        >
+          <span className="text-warm-link">{icon}</span>
+          <span className="uppercase tracking-[0.18em] text-muted-foreground">{label}</span>
+          <span className="font-mono text-[11px] tabular-nums text-foreground/80">{value}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72">
+        {children}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function fmtTime(s: number) {
+  const m = Math.floor(s / 60).toString().padStart(2, "0");
+  const sec = Math.floor(s % 60).toString().padStart(2, "0");
+  return `${m}:${sec}`;
 }
 
 function ControlRow({
@@ -215,10 +402,6 @@ function ControlRow({
       <Slider value={[v]} min={min} max={max} step={step} onValueChange={(n) => onChange(n[0] ?? 0)} />
     </div>
   );
-}
-
-function Divider() {
-  return <div className="my-5 h-px w-full bg-border/40" />;
 }
 
 function fmtDb(n: number) {

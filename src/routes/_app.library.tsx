@@ -1,6 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ArrowRight, Sparkles, Loader2, ExternalLink, Pencil, Wand2 } from "lucide-react";
+import { ChevronLeft, ArrowRight, Sparkles, Loader2, ExternalLink, Pencil, Wand2, Send } from "lucide-react";
 import { useEffect, useState, type KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
 import {
@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { zodValidator } from "@tanstack/zod-adapter";
 import { intentionSearchSchema } from "@/utils/intention";
+import { handoffToAssembly } from "@/utils/handoff";
 
 export const Route = createFileRoute("/_app/library")({
   validateSearch: zodValidator(intentionSearchSchema),
@@ -31,11 +32,13 @@ type Mode = "choose" | "prompt" | "suggestions";
 
 function LibraryPage() {
   const { intention: incomingIntention } = Route.useSearch();
+  const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("choose");
   const [intention, setIntention] = useState("");
   const [tracks, setTracks] = useState<LibraryTrack[] | null>(null);
   const [activeBundle, setActiveBundle] = useState<SuggestionBundle | null>(null);
   const [loading, setLoading] = useState(false);
+  const [importingId, setImportingId] = useState<string | null>(null);
 
   // If we arrived from welcome with an intention, jump straight into prompt mode
   // and pre-fill the field. The user can edit before searching.
@@ -96,16 +99,38 @@ function LibraryPage() {
     setMode("choose");
   };
 
+  const sendTrackToAssembly = async (t: LibraryTrack) => {
+    if (importingId) return;
+    setImportingId(t.id);
+    try {
+      const setId = await handoffToAssembly(incomingIntention || intention, {
+        title: t.title,
+        artist: t.artist,
+        source: "manual",
+        upload_url: t.streamUrl ?? t.sourceUrl,
+        notes: `From ${t.sourceLabel}${t.license ? ` · ${t.license}` : ""}`,
+      });
+      toast.success("Added to Assembly");
+      navigate({ to: "/assembly/$setId", params: { setId } });
+    } catch (e) {
+      console.error(e);
+      toast.error("Couldn't import this track. Try again.");
+    } finally {
+      setImportingId(null);
+    }
+  };
+
   return (
     <div className="relative flex min-h-[calc(100vh-4rem)] flex-col items-center px-4 py-16 md:px-6 md:py-20">
       <div className="mx-auto w-full max-w-5xl">
-        <Link
-          to="/welcome"
+        <button
+          type="button"
+          onClick={() => navigate({ to: "/welcome" })}
           className="mb-8 inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-warm-link/70 transition-opacity hover:opacity-100"
         >
           <ChevronLeft className="h-3 w-3" />
           Back
-        </Link>
+        </button>
 
         <motion.h1
           initial={{ opacity: 0, y: 18 }}
@@ -299,7 +324,12 @@ function LibraryPage() {
               ) : (
                 <ul className="grid gap-3 sm:grid-cols-2">
                   {tracks.map((t) => (
-                    <TrackCard key={t.id} t={t} />
+                    <TrackCard
+                      key={t.id}
+                      t={t}
+                      onSend={() => sendTrackToAssembly(t)}
+                      sending={importingId === t.id}
+                    />
                   ))}
                 </ul>
               )}
@@ -315,7 +345,15 @@ function LibraryPage() {
   );
 }
 
-function TrackCard({ t }: { t: LibraryTrack }) {
+function TrackCard({
+  t,
+  onSend,
+  sending,
+}: {
+  t: LibraryTrack;
+  onSend: () => void;
+  sending: boolean;
+}) {
   return (
     <li className="group relative flex flex-col gap-2 rounded-2xl border border-border/50 bg-card/40 p-4 pb-12 backdrop-blur-sm transition-all hover:border-warm-link/60 hover:bg-card/60">
       <div className="flex items-start justify-between gap-2">
@@ -328,15 +366,27 @@ function TrackCard({ t }: { t: LibraryTrack }) {
             {t.year ? ` · ${t.year}` : ""}
           </p>
         </div>
-        <a
-          href={t.sourceUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Open on source"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary/60 text-muted-foreground opacity-60 transition-opacity hover:opacity-100"
-        >
-          <ExternalLink className="h-3 w-3" />
-        </a>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={onSend}
+            disabled={sending}
+            aria-label="Send to Assembly"
+            title="Send to Assembly"
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-warm-link/15 text-warm-link transition-colors hover:bg-warm-link hover:text-background disabled:opacity-50"
+          >
+            <Send className="h-3 w-3" />
+          </button>
+          <a
+            href={t.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Open on source"
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary/60 text-muted-foreground opacity-60 transition-opacity hover:opacity-100"
+          >
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
       </div>
 
       {t.reason && (
