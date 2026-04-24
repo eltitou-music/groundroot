@@ -9,8 +9,8 @@ type ThemeContextValue = {
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
-const STORAGE_KEY = "osmose-theme";
-const LEGACY_STORAGE_KEY = "groundroot-theme";
+const STORAGE_KEY = "pio-near-theme";
+const LEGACY_STORAGE_KEY = "osmose-theme";
 
 function applyTheme(theme: Theme) {
   if (typeof document === "undefined") return;

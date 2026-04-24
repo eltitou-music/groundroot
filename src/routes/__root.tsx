@@ -3,7 +3,7 @@ import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/r
 import appCss from "../styles.css?url";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
-import logoUrl from "@/assets/osmose-logo.png";
+import logoUrl from "@/assets/pio-near-logo.png";
 
 function NotFoundComponent() {
   return (
@@ -32,17 +32,17 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Osmose — transcend and share yourself to the world through music" },
+      { title: "Pio - Near — Connect the dots" },
       {
         name: "description",
         content:
-          "Osmose — transcend and share yourself to the world through music. A calm, AI-assisted studio to sequence, shape, and master sets with intention.",
+          "Pio - Near — Connect the dots. A calm, AI-assisted studio to sequence, shape, and master sets with intention.",
       },
-      { name: "author", content: "Osmose" },
-      { property: "og:title", content: "Osmose — transcend and share yourself to the world through music" },
+      { name: "author", content: "Pio - Near" },
+      { property: "og:title", content: "Pio - Near — Connect the dots" },
       {
         property: "og:description",
-        content: "Transcend and share yourself to the world through music. Sequence, shape, master.",
+        content: "Connect the dots. Sequence, shape, master.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
