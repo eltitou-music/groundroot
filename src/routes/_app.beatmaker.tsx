@@ -209,6 +209,8 @@ function BeatmakerPage() {
   const stepRef = useRef(0);
   const patternRef = useRef(pattern);
   patternRef.current = pattern;
+  const voiceCountRef = useRef(voiceCount);
+  voiceCountRef.current = voiceCount;
 
   const ensureCtx = () => {
     if (!ctxRef.current) {
@@ -246,7 +248,7 @@ function BeatmakerPage() {
     const interval = (60_000 / bpm) / 4; // 16th notes
     timerRef.current = window.setInterval(() => {
       const cur = stepRef.current;
-      patternRef.current.forEach((row, r) => {
+      patternRef.current.slice(0, voiceCountRef.current).forEach((row, r) => {
         if (row[cur]) playVoice(VOICES[r]);
       });
       setStep(cur);
@@ -471,9 +473,39 @@ function BeatmakerPage() {
             </button>
           </div>
 
-          <div className="ml-auto text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            {STEPS} steps · {VOICES.length} voices
+          {/* Voice count: 3–6, defaults to 5 */}
+          <div className="ml-2 flex items-center gap-2">
+            <button
+              onClick={() => setVoiceCount((n) => Math.max(3, n - 1))}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-border/60 text-muted-foreground hover:border-warm-link hover:text-warm-link"
+              aria-label="One fewer voice"
+              title="One fewer voice"
+            >
+              <Minus className="h-3 w-3" />
+            </button>
+            <div className="min-w-[64px] text-center font-mono text-sm tabular-nums text-foreground">
+              {voiceCount} <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">voices</span>
+            </div>
+            <button
+              onClick={() => setVoiceCount((n) => Math.min(VOICES.length, n + 1))}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-border/60 text-muted-foreground hover:border-warm-link hover:text-warm-link"
+              aria-label="Add a voice"
+              title="Add a voice"
+            >
+              <Plus className="h-3 w-3" />
+            </button>
           </div>
+
+          {/* Send to Assembly — primary hand-off */}
+          <button
+            onClick={sendToAssembly}
+            disabled={sending}
+            className="ml-auto inline-flex h-11 items-center gap-1.5 rounded-full bg-warm-link px-4 text-xs uppercase tracking-[0.18em] text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+            title="Send this sketch to Assembly"
+          >
+            <Send className="h-3.5 w-3.5" />
+            {sending ? "Sending…" : "Send to Assembly"}
+          </button>
         </motion.div>
 
         {/* Grid */}
@@ -483,7 +515,7 @@ function BeatmakerPage() {
           transition={{ duration: 0.8, delay: 0.45 }}
           className="mt-6 space-y-2 overflow-x-auto pb-2"
         >
-          {VOICES.map((v, r) => (
+          {VOICES.slice(0, voiceCount).map((v, r) => (
             <div key={v.name} className="flex items-center gap-3 min-w-[640px]">
               <div
                 className="flex w-24 shrink-0 flex-col gap-0.5 text-xs uppercase tracking-[0.18em] text-muted-foreground"
