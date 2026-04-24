@@ -1,10 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { ChevronLeft, Play, Pause, RotateCcw, Plus, Minus, Shuffle, Magnet } from "lucide-react";
+import { ChevronLeft, Play, Pause, RotateCcw, Plus, Minus, Shuffle, Magnet, Send } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { zodValidator } from "@tanstack/zod-adapter";
 import { intentionSearchSchema } from "@/utils/intention";
+import { handoffToAssembly } from "@/utils/handoff";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/beatmaker")({
   validateSearch: zodValidator(intentionSearchSchema),
@@ -190,11 +192,15 @@ const STYLES: Style[] = [
 
 function BeatmakerPage() {
   const { intention } = Route.useSearch();
+  const navigate = useNavigate();
   const [styleId, setStyleId] = useState<string>(STYLES[0].id);
   const [pattern, setPattern] = useState<boolean[][]>(() => stylePattern(STYLES[0]));
   const [playing, setPlaying] = useState(false);
   const [bpm, setBpm] = useState(STYLES[0].bpm);
   const [step, setStep] = useState(0);
+  // 5 voices by default (test feedback: "only 4 tracks, requested 5"). Range 3–6.
+  const [voiceCount, setVoiceCount] = useState(5);
+  const [sending, setSending] = useState(false);
   // Quantize: "off" = 1/16 (tap exact cell), "8" = snap to 1/8, "4" = snap to 1/4.
   // The grid is always 32 × 1/16 cells; quantize only affects where a *tap* lands.
   const [quantize, setQuantize] = useState<"off" | "8" | "4">("off");
@@ -275,6 +281,40 @@ function BeatmakerPage() {
     setPattern(stylePattern(s, /* jitter */ true));
   };
 
+  const sendToAssembly = async () => {
+    if (sending) return;
+    setSending(true);
+    try {
+      const style = STYLES.find((x) => x.id === styleId) ?? STYLES[0];
+      const visibleRows = pattern.slice(0, voiceCount);
+      const totalHits = visibleRows.reduce(
+        (s, row) => s + row.filter(Boolean).length,
+        0,
+      );
+      const setId = await handoffToAssembly(intention, {
+        title: `Sketch · ${style.label}`,
+        artist: "Beatmaker",
+        source: "manual",
+        bpm,
+        notes: JSON.stringify({
+          kind: "beatmaker_sketch",
+          style: style.id,
+          bpm,
+          voices: VOICES.slice(0, voiceCount).map((v) => v.name),
+          pattern: visibleRows,
+          totalHits,
+        }),
+      });
+      toast.success("Sent to Assembly");
+      navigate({ to: "/assembly/$setId", params: { setId } });
+    } catch (e) {
+      console.error(e);
+      toast.error("Couldn't send to Assembly. Try again.");
+    } finally {
+      setSending(false);
+    }
+  };
+
   const gridTemplate = useMemo(
     () => ({ gridTemplateColumns: `repeat(${STEPS}, minmax(0, 1fr))` }),
     [],
@@ -283,13 +323,14 @@ function BeatmakerPage() {
   return (
     <div className="relative flex min-h-[calc(100vh-4rem)] flex-col items-center px-4 py-20 md:px-6">
       <div className="mx-auto w-full max-w-6xl">
-        <Link
-          to="/welcome"
+        <button
+          type="button"
+          onClick={() => navigate({ to: "/welcome" })}
           className="mb-10 inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-warm-link/70 transition-opacity hover:opacity-100"
         >
           <ChevronLeft className="h-3 w-3" />
           Back
-        </Link>
+        </button>
 
         <motion.h1
           initial={{ opacity: 0, y: 18 }}
