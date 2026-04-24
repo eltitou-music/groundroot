@@ -15,8 +15,11 @@ import {
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
+import { zodValidator } from "@tanstack/zod-adapter";
+import { intentionSearchSchema } from "@/utils/intention";
 
 export const Route = createFileRoute("/_app/assembly")({
+  validateSearch: zodValidator(intentionSearchSchema),
   component: AssemblyWorkspace,
 });
 

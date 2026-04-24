@@ -1,136 +1,153 @@
-## GroundRoot v0.8 — full reimagine
+# GroundRoot v0.9 — Plan
 
-### Honest preface on the PDF
+## North star (from Tristan's intention notes)
 
-The uploaded `GroundRoot_v0.7.pdf` (51 pages) contains the captured source of the **Claude.ai host page**, not the GroundRoot artifact itself: pages 1-13 are Claude's CSS/JS bundle URLs, pages 14-51 are Claude's French i18n dictionary (Marketplace, Cowork, GitHub app, billing strings). The artifact runs in a sandboxed iframe that print-to-PDF cannot capture, so there is no v0.7 design language to merge from — only the **name** "GroundRoot" is recoverable. This plan therefore reimagines v0.8 as a fresh release rather than a literal merge.
+- Software for artistic expression that **removes friction between intention and output**
+- **Play first, curate second** — Tyler the Creator's "create like an artist, curate like a scientist"
+- Calm, child-like, inviting — works *with* an ADHD mind, not against it
+- Every screen should feel like it's transmitting from a place of love, not anxiety
 
-### Concept: "GroundRoot" — earthy, grounded, alive
+Three principles drive every change below:
 
-A musician's intention starts as a seed in fertile ground; the app grows it into a finished set. The visual language replaces Pio-Near's seaside sunset with a **forest-floor / underground-roots** aesthetic — warm earth tones, root-structure motifs, and quiet plant life. Same Studio-Ghibli watercolor technique (pure CSS + SVG, no AI art), reapplied to the new palette.
+1. **One breath to start.** Never more than one input between the user and sound.
+2. **Play, then keep.** Capture happens silently in the background; the user is never asked "do you want to save this?"
+3. **One spine.** Beatmaker → Library → Assembly → Mastery is one continuous river. Each pillar hands off to the next with the *same intention* preserved.
 
-**Palette (replaces Pio-Near's coral/indigo):**
-- `#2A1F17` deep loam (background, dark mode base)
-- `#3D2E20` warm bark (surfaces)
-- `#8B5A2B` clay (primary accent)
-- `#D4A574` honey (secondary, hover)
-- `#6B8E4E` moss green (links, success)
-- `#E8DCC4` parchment (light surfaces)
-- `#C44536` clay-red (destructive / set-fire moments)
+---
 
-**Tagline:** "Where every set takes root."
+## What's there today (honest read)
 
-### 1. Brand swap (Pio-Near → GroundRoot)
 
-- Wordmark "GroundRoot" everywhere (single word, capital R).
-- Asset: generate `src/assets/groundroot-logo.png` — a stylized seedling whose root system spreads downward into a vinyl-record groove pattern. Square ~512×512, transparent background.
-- localStorage key: `groundroot-theme` (with one-time migration from `pio-near-theme` and earlier `osmose-theme`).
-- CSS animation rename: `pio-breath` → `root-breath` (same 6s cycle).
-- Meta tags in `__root.tsx` and `_app.welcome.tsx`: title `GroundRoot — Where every set takes root`.
-- About page copy refreshed.
+| Pillar    | State                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Friction we'll remove                                                                | &nbsp;                                                                      | &nbsp; |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- | ------ |
+| Welcome   | Beautiful, but pushes everyone straight into Assembly via `sets` insert                                                                                                                                                                                                                                                                                                                                                                                              | Asks for a setlist before the user has played a note                                 | &nbsp;                                                                      | &nbsp; |
+| Beatmaker | Functional 6-voice 32-step grid. Include options for house, r&b, jazz, electronic, techno & other styles of beats. Keep it 10 max                                                                                                                                                                                                                                                                                                                                    | Dead-end: nothing carries forward; voices named like a drum machine, not like a body | &nbsp;                                                                      | &nbsp; |
+| Library   | Prompt + suggestions + multi-source aggregation works well. Digest the description of the sound into something comestible for the user, not just the plain text from the archive tool, keep the source name minimal, almost invisble. Add a visual descriptor of the sound, with some animation too (ex: falling raindrops, moving air in the bushes, etc.)                                                                                                          | Results don't feed Assembly; no preview audio in-card                                | &nbsp;                                                                      | &nbsp; |
+| Assembly  | Should have 5 tracks to start with an easy to access button at the bottom to add more. We want SPACE for the user to think and get creative.                                                                                                                                                                                                                                                                                                                         | &nbsp;                                                                               | Confusing — one is a fake DAW, the other is the real intention-anchored set | &nbsp; |
+| Mastery   | This place should feel like the pressure cooker where you are burning to release the set because it's so good. It should give you the showcase of the entire track/set in the middle, show the energy level throughout the set, and at the top give intelligent options to improve it overall (reduce clipping, adapt for club, or studio, add more bass on transitions, repair, etc.). Then it should have buttons in the top right to SHARE to SoundCloud to start | &nbsp;                                                                               | Disconnected from the set being assembled                                   | &nbsp; |
 
-### 2. Welcome page redesign (`src/components/welcome/WelcomePage.tsx`)
 
-Replace the sunset-over-sea hero with a **soil cross-section** scene:
+---
+
+## The plan — five focused moves
+
+### Move 1 — Welcome becomes a **fork, not a funnel**
+
+Today the welcome page only knows one verb: "start a set". That's too heavy when the user just wants to *play*.
+
+Change the intention input behavior:
+
+- The four destination words below the input (`Beatmaker · Library · Assembly · Mastery`) become **the actual decision** — when the user types an intention and hits one, we route there *with the intention attached as a query param*.
+- Default action on Enter / arrow stays the current "start a set", but it's no longer the only door.
+- Templates (Sunset brunch, Techno night…) gain the same fork — long-press / right-side dot to choose where they land.
+
+Result: a 27-year-old with ADHD can type "make a cool beat" + tap **Beatmaker** and be in the grid in one tap, with that intention pinned at the top.
+
+### Move 2 — Beatmaker: **Play Mode** + silent capture
+
+Reframe the page around play, not production.
+
+- **Voices renamed** to body words: Heart (kick), Clap (snare), Whisper (hat), Spark (perc). Same sounds — different invitation.
+- **"Just play" empty state**: when the grid is blank, a single ghost row pulses gently; tapping anywhere starts a 4-on-the-floor seed so there's *always* sound within one tap.
+- **Silent capture**: every pattern the user touches is auto-saved to a per-session `sketches` row (no "Save" button, ever). A small "Sketches today" pill at the bottom shows the last 3 — tap one to recall it, swipe to discard.
+- **Hand-off to Library**: a single button "Find sounds that fit this" sends the current BPM + pattern fingerprint as the Library prompt seed.
+- **Hand-off to Assembly**: "Plant in a set" creates a `sets` row (with intention from welcome if present) and drops the loop in as track 1.
+
+Keep current audio engine as-is — only UI/copy + a `localStorage`-backed sketch stack (DB optional in v0.9).
+
+### Move 3 — Library: **preview-in-card** + send-to-Assembly
+
+The aggregator already works. What's missing is the closing of the loop.
+
+- **Inline preview**: each `TrackCard` gets a 30s preview button (Internet Archive results expose `audio` files in the JSON; FMA/OMA fall back to "open source" link as today).
+- **Source attribution stays bottom-left** (already shipped — keep).
+- **"Add to set" pill**: appears on hover/focus. If the user has an active set (from welcome) it adds to that set's tracks; if not, it offers two paths in a tiny popover: *Start a set with this* / *Save to my crate*.
+- **Trust line stays**: the existing `reason` field ("why we picked this") is now bolder — moved up next to the title at small text size, italic.
+
+### Move 4 — Assembly: **collapse two surfaces into one**
+
+Right now `/assembly` is a generic timeline workspace and `/assembly/$setId` is the intention-anchored set. That's two answers to the same question.
+
+- `/assembly` (no id) becomes a **list of the user's sets** (intention pinned, last-edited timestamp, cover gradient) + a "New set" button. No timeline mock.
+- `/assembly/$setId` is the *only* editor — keep current SourcesPanel / TransitionMap / CoPilot / IntentionPin layout.
+- **Carryover from Beatmaker / Library**: when arriving with `?from=beatmaker&sketchId=…` or `?from=library&trackIds=…`, pre-populate the set and toast "Brought your sketch over."
+- **Empty-state seedling**: when a set has zero tracks, show the `RootSystem` SVG faintly behind the grid with copy "This set is still a seed — drop a sound in."
+
+### Move 5 — Mastery: **bind to the active set**
+
+Mastery is currently a sandbox of sliders. Bind it to a set.
+
+- Route becomes `/mastering/$setId` (with `/mastering` redirecting to the most recent set, or showing a chooser if none).
+- Header reads the set's `intention` and renames the export action: "Render *Sunset brunch* master".
+- Rename presets to **soil profiles** to match the metaphor (already in the prior plan, never shipped):
+  - Club soundsystem → **Festival ground**
+  - Streaming (DSP) → **Open field**
+  - Headphones → **Forest floor**
+  - Car stereo → **Open road**
+- Export remains disabled placeholder (no DSP yet) but the UI now feels like the *end* of one journey, not a standalone tool.
+
+---
+
+## Cross-cutting polish (cheap, high-impact)
+
+- **Replace anonymous sign-in trigger** on welcome with a deferred trigger — user only gets a session when they *actually* commit to a set or save a sketch. Today every page-load with intention text creates a session, which clutters the DB.
+- **Page metadata cleanup**: Beatmaker still says "Pio - Near" in `<head>`, Mastery same, welcome route file too. Sweep all four to GroundRoot with per-page social previews.
+- **Consistent back affordance**: every pillar's "← Back" goes to `/welcome` today. Keep, but add a soft breadcrumb under the H1 showing the carried intention ("from your intention: *Sunset brunch*") when present — this is the visible thread that ties the spine together.
+
+---
+
+## Technical sketch (for reference, skip if non-technical)
 
 ```text
-┌───────────────────────────────────────────────────────────────┐
-│ [GroundRoot logo · top-left]                  [theme toggle] │
-│                                                               │
-│   ╭─ DAWN SKY (slim band, ~18vh) ──────────────────────────╮ │
-│   │   pale honey → parchment, single soft sun              │ │
-│   ╰────────────────────────────────────────────────────────╯ │
-│   ~~~~~~ horizon line of grass blades (SVG) ~~~~~~~~~~~~~~~  │
-│                                                               │
-│              ╔═════════════════════════════╗                 │
-│              ║         GroundRoot          ║   (display)     │
-│              ║ Where every set takes root  ║   (subtitle)    │
-│              ╚═════════════════════════════╝                 │
-│                                                               │
-│        ┌───────────────────────────────────────────┐         │
-│        │  Today's intention                        │         │
-│        │  [ I want to make a mixtape for…    →]   │         │
-│        └───────────────────────────────────────────┘         │
-│                                                               │
-│      🌅 Sunset brunch  🌑 Techno night  🎚️ House warmup      │
-│      🌫️ Afters  📚 Focus session  🚗 Road trip               │
-│                                                               │
-│      Beatmaker · Library · Assembly · Mastery · ( ? )        │
-│                                                               │
-│   ░░░░░░░░░░░░ SOIL LAYER (CSS gradient) ░░░░░░░░░░░░░░░░░  │
-│   ╲╱╲ root system (SVG, branching paths, slow grow) ╱╲╱╲    │
-└───────────────────────────────────────────────────────────────┘
+welcome
+ ├─ intention typed
+ ├─ chooses destination chip → routed with ?intention=…
+ └─ (no DB write until commit)
+
+beatmaker
+ ├─ localStorage: gr.sketches[] (id, bpm, pattern, ts)
+ ├─ "Find sounds that fit"  → /library?seed=<sketchId>
+ └─ "Plant in a set"        → POST sets, POST tracks, → /assembly/$setId
+
+library
+ ├─ preview button uses IA's audio.* file URLs (already in API response)
+ ├─ "Add to set" → POST tracks(set_id, source_url, source, title, artist)
+ └─ trust line ("why") promoted next to title
+
+assembly
+ ├─ /assembly             → list of user's sets (replaces timeline mock)
+ ├─ /assembly/$setId      → existing intention-anchored editor (kept)
+ └─ accepts ?from=…&sketchId|trackIds for handoff
+
+mastering
+ ├─ /mastering            → redirect to latest set or chooser
+ └─ /mastering/$setId     → existing UI, bound to set, renamed presets
 ```
 
-**New visual elements:**
-- **Dawn sky band** at top (replaces sunset hero): pale honey → parchment gradient, single small sun, ~18vh (smaller than v0.7's 38vh).
-- **Grass horizon** (SVG): row of irregular blade silhouettes in moss green, hand-drawn stroke style.
-- **Soil layer** at bottom (replaces plants strip): warm bark-to-loam gradient occupying bottom ~30vh.
-- **Root system** (SVG, ~200 lines): branching paths radiating from below the wordmark down into the soil. Uses `stroke-dasharray` + animation for a slow "growing" effect on first load (respects `prefers-reduced-motion`).
-- **Three small plant sprouts** poke through the grass line at staggered positions, swaying gently (reuses existing `plantSway` keyframes, renamed `rootSway`).
-- Keeps existing intention-template chips, intention input, and destinations row — only restyled to new palette.
+DB-wise this only needs:
 
-### 3. Pillar pages redesign
+- A `sketches` table (optional in v0.9 — `localStorage` is fine for first cut)
+- `tracks` to accept Library imports (likely already supports it; will verify before writing migration)
 
-Each of the four pillar pages gets a small visual identity tied to GroundRoot's earthy theme, while preserving the functional first drafts already shipped.
+No new dependencies. No edge functions. No external API keys. Purely composition + copy + routing changes on top of what we shipped.
 
-**Beatmaker (`_app.beatmaker.tsx`)** — "Plant the seed"
-- Reframe sequencer cells as **soil plots**: rounded squares with warm bark fill, active steps glow honey/clay.
-- Voices renamed visually: Kick → Heart, Snare → Clap, Hat → Whisper, Perc → Spark (functional names, keeps Web Audio synthesis).
-- Transport bar gets a "soil moisture" visualizer: BPM controls a subtle pulsing root pattern in the background.
+---
 
-**Library (`_app.library.tsx`)** — "The seed bank"
-- Track cards become **seed-packet cards**: parchment background, hand-drawn label corner, mood badges as botanical tags.
-- Mood filters renamed to growth metaphors: warm → "germinating", dark → "deep roots", hypnotic → "spiraling vine", etc. (label-only; underlying mock data unchanged).
-- Search bar gets a small leaf icon.
+## What I'm explicitly *not* doing in v0.9
 
-**Assembly (`_app.assembly.tsx` + `_app.assembly.$setId.tsx`)** — "The garden"
-- Top bar gets a small breadcrumb root motif.
-- The existing multi-track workspace inherits the new theme tokens; no structural change to logic.
-- Empty-state illustration: a single seedling with an empty plot beside it, "Add your first track to start growing your set."
+- Real DSP / mastering engine (still placeholder export)
+- Real audio rendering in Assembly timeline
+- Sample-chopping in Beatmaker
+- AI features beyond the existing CoPilot panel — Tristan's note is about removing friction, not piling on AI
 
-**Mastery (`_app.mastering.tsx`)** — "Harvest"
-- Visual meter restyled as a horizontal **growth ring** (concentric arcs) instead of bars.
-- "Translate to" presets become **soil profiles**: Club → "Festival ground", DSP → "Garden bed", Vinyl → "Forest floor" (label-only).
-- LUFS/EQ controls keep their function; sliders get warm clay-colored thumbs.
+---
 
-### 4. AppShell + theme system
+## Order of work (one batch each, in build mode)
 
-- `AppShell.tsx`: new logo, wordmark "GroundRoot", header gets a 1px moss-green underline strip.
-- `ThemeProvider.tsx`: storage key migration chain `osmose-theme` → `pio-near-theme` → `groundroot-theme`.
-- `src/styles.css`:
-  - Add new CSS custom properties for the GroundRoot palette under `:root` and `.dark` (the existing variable names like `--background`, `--foreground`, `--warm-link` get remapped to the new earth palette — no Tailwind class changes needed in any consumer).
-  - Rename keyframes `pio-breath` → `root-breath` and `plantSway` → `rootSway`.
-  - Add a new `rootGrow` keyframe (stroke-dasharray animation) for the welcome-page root system.
-- `__root.tsx`: meta updates only (title, description, og tags, favicon).
+1. Welcome: chip-as-fork + deferred auth + meta sweep
+2. Beatmaker: copy + sketch capture + two hand-off buttons
+3. Library: preview button + add-to-set + trust line promotion
+4. Assembly: split surfaces (list vs editor) + intention breadcrumb + handoff acceptance
+5. Mastery: bind to set + soil-profile rename + intention-aware export label
 
-### 5. New files / asset
-
-- `src/assets/groundroot-logo.png` — generated.
-- No new routes; `/welcome` stays the canonical landing.
-- `src/components/welcome/RootSystem.tsx` — extracted SVG component (~120 lines) for the animated root illustration, kept separate from `WelcomePage.tsx` to keep the latter readable.
-
-### 6. Out of scope
-
-- Buying the `groundroot.io` domain (user action).
-- Rewriting Web Audio synthesis, Spotify integration, or Supabase schema — purely visual + brand changes plus the small label renames listed above.
-- Real botanical illustrations or photography — everything stays pure CSS/SVG to preserve the painterly Ghibli technique.
-
-### Files touched
-
-| File | Change |
-|---|---|
-| `src/assets/groundroot-logo.png` | new (generated) |
-| `src/components/welcome/WelcomePage.tsx` | full rewrite of hero + plants strip + copy |
-| `src/components/welcome/RootSystem.tsx` | new SVG component |
-| `src/components/layout/AppShell.tsx` | logo + wordmark swap |
-| `src/components/theme/ThemeProvider.tsx` | storage key + migration |
-| `src/styles.css` | palette remap, keyframe renames, `rootGrow` keyframe |
-| `src/routes/__root.tsx` | meta + favicon |
-| `src/routes/_app.welcome.tsx` | meta block |
-| `src/routes/_app.about.tsx` | copy |
-| `src/routes/_app.beatmaker.tsx` | restyle + voice label rename |
-| `src/routes/_app.library.tsx` | restyle + mood label rename |
-| `src/routes/_app.assembly.tsx` | top-bar restyle + empty state |
-| `src/routes/_app.mastering.tsx` | meter + preset label restyle |
-
-Old `pio-near-logo.png` is left in place untouched (no orphan deletions); imports just stop referencing it.
+Approve and I'll start with move 1.

@@ -1,7 +1,7 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
 import { useNavigate, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { ArrowRight, HelpCircle } from "lucide-react";
+import { HelpCircle, Sprout } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -9,14 +9,15 @@ import { RootSystem } from "@/components/welcome/RootSystem";
 
 type Destination = {
   label: string;
+  hint: string;
   to: "/beatmaker" | "/library" | "/assembly" | "/mastering";
 };
 
 const destinations: Destination[] = [
-  { label: "Beatmaker", to: "/beatmaker" },
-  { label: "Library", to: "/library" },
-  { label: "Assembly", to: "/assembly" },
-  { label: "Mastery", to: "/mastering" },
+  { label: "Beatmaker", hint: "play a rhythm", to: "/beatmaker" },
+  { label: "Library", hint: "find sounds", to: "/library" },
+  { label: "Assembly", hint: "build a set", to: "/assembly" },
+  { label: "Mastery", hint: "polish the finish", to: "/mastering" },
 ];
 
 type IntentionTemplate = {
@@ -46,7 +47,8 @@ export function WelcomePage() {
     });
   }, []);
 
-  const handleStart = async (overrideIntention?: string) => {
+  // Commit path: user explicitly wants a setlist. Creates session + sets row.
+  const handleCommitToSet = async (overrideIntention?: string) => {
     if (saving) return;
     setSaving(true);
     try {
@@ -81,15 +83,25 @@ export function WelcomePage() {
     }
   };
 
+  // Fork path: user picked a pillar. Carry the intention as a query param.
+  // No DB write, no session — pure routing.
+  const goToPillar = (to: Destination["to"], overrideIntention?: string) => {
+    const finalIntention = (overrideIntention ?? intention).trim();
+    navigate({
+      to,
+      search: finalIntention ? { intention: finalIntention } : undefined,
+    });
+  };
+
   const handleTemplate = (tpl: IntentionTemplate) => {
     setIntention(tpl.intention);
-    void handleStart(tpl.intention);
+    void handleCommitToSet(tpl.intention);
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      void handleStart();
+      void handleCommitToSet();
     }
   };
 
@@ -198,9 +210,10 @@ export function WelcomePage() {
             />
             <button
               type="button"
-              onClick={() => handleStart()}
+              onClick={() => handleCommitToSet()}
               disabled={saving}
-              aria-label="Begin"
+              aria-label="Plant a set with this intention"
+              title="Plant a set"
               className={cn(
                 "absolute right-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full",
                 "text-muted-foreground/60 transition-all",
@@ -208,7 +221,7 @@ export function WelcomePage() {
                 "disabled:opacity-40",
               )}
             >
-              <ArrowRight className="h-4 w-4" />
+              <Sprout className="h-4 w-4" />
             </button>
           </div>
 
@@ -233,35 +246,43 @@ export function WelcomePage() {
               </button>
             ))}
           </div>
+
+          <p className="mt-3 text-[11px] italic text-muted-foreground/60">
+            Press the seedling to plant a set — or pick a pillar below to just play.
+          </p>
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 0.7, ease: "easeOut" }}
-          className="mt-12 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm tracking-wide"
+          className="mt-12 flex flex-wrap items-center justify-center gap-2 text-sm tracking-wide"
         >
-          {destinations.map((dest, i) => (
-            <span key={dest.label} className="flex items-center gap-3">
-              <Link
-                to={dest.to}
-                className="font-display italic text-warm-link transition-opacity hover:opacity-70"
-              >
-                {dest.label}
-              </Link>
-              <span className="text-warm-link/40">·</span>
-              {i === destinations.length - 1 && (
-                <Link
-                  to="/about"
-                  aria-label="About us"
-                  className="group inline-flex h-7 w-7 items-center justify-center rounded-full border border-warm-link/50 text-warm-link transition-colors hover:border-warm-link hover:bg-warm-link/10"
-                  title="About us"
-                >
-                  <HelpCircle className="h-3.5 w-3.5" />
-                </Link>
+          {destinations.map((dest) => (
+            <button
+              key={dest.label}
+              type="button"
+              onClick={() => goToPillar(dest.to)}
+              className={cn(
+                "group flex flex-col items-center gap-0.5 rounded-2xl border border-warm-link/30 bg-card/30 px-4 py-2 text-center backdrop-blur-sm transition-all",
+                "hover:border-warm-link hover:bg-warm-link/10",
               )}
-            </span>
+              title={`Go to ${dest.label} — ${dest.hint}`}
+            >
+              <span className="font-display italic text-warm-link">{dest.label}</span>
+              <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 group-hover:text-foreground/80">
+                {dest.hint}
+              </span>
+            </button>
           ))}
+          <Link
+            to="/about"
+            aria-label="About GroundRoot"
+            className="ml-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-warm-link/40 text-warm-link transition-colors hover:border-warm-link hover:bg-warm-link/10"
+            title="About GroundRoot"
+          >
+            <HelpCircle className="h-3.5 w-3.5" />
+          </Link>
         </motion.div>
       </div>
 

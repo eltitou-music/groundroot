@@ -4,13 +4,16 @@ import { ChevronLeft, Download, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
+import { zodValidator } from "@tanstack/zod-adapter";
+import { intentionSearchSchema } from "@/utils/intention";
 
 export const Route = createFileRoute("/_app/mastering")({
+  validateSearch: zodValidator(intentionSearchSchema),
   head: () => ({
     meta: [
-      { title: "Mastery — Pio - Near" },
-      { name: "description", content: "Polish a finished set for release." },
-      { property: "og:title", content: "Mastery — Pio - Near" },
+      { title: "Mastery — GroundRoot" },
+      { name: "description", content: "The final pass — level, glue, and translate your set so it lands the same everywhere." },
+      { property: "og:title", content: "Mastery — GroundRoot" },
       { property: "og:description", content: "Polish a finished set for release." },
     ],
   }),
@@ -25,6 +28,7 @@ const PRESETS = [
 ] as const;
 
 function MasteringPage() {
+  const { intention } = Route.useSearch();
   const [lufs, setLufs] = useState(-14);
   const [low, setLow] = useState(0);
   const [mid, setMid] = useState(0);
@@ -67,6 +71,12 @@ function MasteringPage() {
         >
           Mastery
         </motion.h1>
+
+        {intention && (
+          <p className="mt-2 text-xs uppercase tracking-[0.18em] text-warm-link/80">
+            from your intention · <span className="italic normal-case text-foreground/80">{intention}</span>
+          </p>
+        )}
 
         <motion.p
           initial={{ opacity: 0, y: 12 }}

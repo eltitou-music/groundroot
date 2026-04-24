@@ -3,14 +3,17 @@ import { motion } from "framer-motion";
 import { ChevronLeft, Play, Pause, RotateCcw, Plus, Minus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { zodValidator } from "@tanstack/zod-adapter";
+import { intentionSearchSchema } from "@/utils/intention";
 
 export const Route = createFileRoute("/_app/beatmaker")({
+  validateSearch: zodValidator(intentionSearchSchema),
   head: () => ({
     meta: [
-      { title: "Beatmaker — Pio - Near" },
-      { name: "description", content: "Sketch beats and loops in the browser." },
-      { property: "og:title", content: "Beatmaker — Pio - Near" },
-      { property: "og:description", content: "Sketch beats and loops in the browser." },
+      { title: "Beatmaker — GroundRoot" },
+      { name: "description", content: "Tap a cell, find the pocket. A calm sandbox for rhythm." },
+      { property: "og:title", content: "Beatmaker — GroundRoot" },
+      { property: "og:description", content: "Tap a cell, find the pocket. A calm sandbox for rhythm." },
     ],
   }),
   component: BeatmakerPage,
@@ -28,6 +31,7 @@ const VOICES: Voice[] = [
 const STEPS = 16;
 
 function BeatmakerPage() {
+  const { intention } = Route.useSearch();
   const [pattern, setPattern] = useState<boolean[][]>(() =>
     VOICES.map((_, r) =>
       Array.from({ length: STEPS }, (_, c) =>
@@ -117,6 +121,17 @@ function BeatmakerPage() {
         >
           Beatmaker
         </motion.h1>
+
+        {intention && (
+          <motion.p
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="mt-2 text-xs uppercase tracking-[0.18em] text-warm-link/80"
+          >
+            from your intention · <span className="italic normal-case text-foreground/80">{intention}</span>
+          </motion.p>
+        )}
 
         <motion.p
           initial={{ opacity: 0, y: 12 }}

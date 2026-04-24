@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ArrowRight, Sparkles, Loader2, ExternalLink, Pencil, Wand2 } from "lucide-react";
-import { useState, type KeyboardEvent } from "react";
+import { useEffect, useState, type KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
 import {
   searchLibrary,
@@ -11,8 +11,11 @@ import {
   type SuggestionBundle,
 } from "@/utils/library.functions";
 import { toast } from "sonner";
+import { zodValidator } from "@tanstack/zod-adapter";
+import { intentionSearchSchema } from "@/utils/intention";
 
 export const Route = createFileRoute("/_app/library")({
+  validateSearch: zodValidator(intentionSearchSchema),
   head: () => ({
     meta: [
       { title: "Library — GroundRoot" },
@@ -27,11 +30,22 @@ export const Route = createFileRoute("/_app/library")({
 type Mode = "choose" | "prompt" | "suggestions";
 
 function LibraryPage() {
+  const { intention: incomingIntention } = Route.useSearch();
   const [mode, setMode] = useState<Mode>("choose");
   const [intention, setIntention] = useState("");
   const [tracks, setTracks] = useState<LibraryTrack[] | null>(null);
   const [activeBundle, setActiveBundle] = useState<SuggestionBundle | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // If we arrived from welcome with an intention, jump straight into prompt mode
+  // and pre-fill the field. The user can edit before searching.
+  useEffect(() => {
+    if (incomingIntention && mode === "choose" && !tracks) {
+      setIntention(incomingIntention);
+      setMode("prompt");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incomingIntention]);
 
   const runPrompt = async () => {
     const q = intention.trim();
