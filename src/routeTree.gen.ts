@@ -15,6 +15,7 @@ import { Route as SpotifyCallbackRouteImport } from './routes/spotify.callback'
 import { Route as AppWelcomeRouteImport } from './routes/_app.welcome'
 import { Route as AppMasteringRouteImport } from './routes/_app.mastering'
 import { Route as AppLibraryRouteImport } from './routes/_app.library'
+import { Route as AppJournalRouteImport } from './routes/_app.journal'
 import { Route as AppBeatmakerRouteImport } from './routes/_app.beatmaker'
 import { Route as AppAssemblyRouteImport } from './routes/_app.assembly'
 import { Route as AppAboutRouteImport } from './routes/_app.about'
@@ -50,6 +51,11 @@ const AppLibraryRoute = AppLibraryRouteImport.update({
   path: '/library',
   getParentRoute: () => AppRoute,
 } as any)
+const AppJournalRoute = AppJournalRouteImport.update({
+  id: '/journal',
+  path: '/journal',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppBeatmakerRoute = AppBeatmakerRouteImport.update({
   id: '/beatmaker',
   path: '/beatmaker',
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AppAboutRoute
   '/assembly': typeof AppAssemblyRouteWithChildren
   '/beatmaker': typeof AppBeatmakerRoute
+  '/journal': typeof AppJournalRoute
   '/library': typeof AppLibraryRoute
   '/mastering': typeof AppMasteringRoute
   '/welcome': typeof AppWelcomeRoute
@@ -92,6 +99,7 @@ export interface FileRoutesByTo {
   '/about': typeof AppAboutRoute
   '/assembly': typeof AppAssemblyRouteWithChildren
   '/beatmaker': typeof AppBeatmakerRoute
+  '/journal': typeof AppJournalRoute
   '/library': typeof AppLibraryRoute
   '/mastering': typeof AppMasteringRoute
   '/welcome': typeof AppWelcomeRoute
@@ -106,6 +114,7 @@ export interface FileRoutesById {
   '/_app/about': typeof AppAboutRoute
   '/_app/assembly': typeof AppAssemblyRouteWithChildren
   '/_app/beatmaker': typeof AppBeatmakerRoute
+  '/_app/journal': typeof AppJournalRoute
   '/_app/library': typeof AppLibraryRoute
   '/_app/mastering': typeof AppMasteringRoute
   '/_app/welcome': typeof AppWelcomeRoute
@@ -121,6 +130,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/assembly'
     | '/beatmaker'
+    | '/journal'
     | '/library'
     | '/mastering'
     | '/welcome'
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/assembly'
     | '/beatmaker'
+    | '/journal'
     | '/library'
     | '/mastering'
     | '/welcome'
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/_app/about'
     | '/_app/assembly'
     | '/_app/beatmaker'
+    | '/_app/journal'
     | '/_app/library'
     | '/_app/mastering'
     | '/_app/welcome'
@@ -203,6 +215,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppLibraryRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/journal': {
+      id: '/_app/journal'
+      path: '/journal'
+      fullPath: '/journal'
+      preLoaderRoute: typeof AppJournalRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/beatmaker': {
       id: '/_app/beatmaker'
       path: '/beatmaker'
@@ -257,6 +276,7 @@ interface AppRouteChildren {
   AppAboutRoute: typeof AppAboutRoute
   AppAssemblyRoute: typeof AppAssemblyRouteWithChildren
   AppBeatmakerRoute: typeof AppBeatmakerRoute
+  AppJournalRoute: typeof AppJournalRoute
   AppLibraryRoute: typeof AppLibraryRoute
   AppMasteringRoute: typeof AppMasteringRoute
   AppWelcomeRoute: typeof AppWelcomeRoute
@@ -268,6 +288,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAboutRoute: AppAboutRoute,
   AppAssemblyRoute: AppAssemblyRouteWithChildren,
   AppBeatmakerRoute: AppBeatmakerRoute,
+  AppJournalRoute: AppJournalRoute,
   AppLibraryRoute: AppLibraryRoute,
   AppMasteringRoute: AppMasteringRoute,
   AppWelcomeRoute: AppWelcomeRoute,
