@@ -145,13 +145,13 @@ function IntroPage() {
         >
           {destinations.map((dest, i) => (
             <span key={dest.label} className="flex items-center gap-3">
-              {dest.comingSoon ? (
-                <span
-                  title="coming soon"
-                  className="cursor-not-allowed text-warm-link/40"
+              {dest.to ? (
+                <Link
+                  to={dest.to}
+                  className="text-warm-link transition-opacity hover:opacity-70"
                 >
                   {dest.label}
-                </span>
+                </Link>
               ) : (
                 <button
                   type="button"
