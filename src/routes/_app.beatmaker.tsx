@@ -506,6 +506,20 @@ function BeatmakerPage() {
 
 /* ---------------- helpers ---------------- */
 
+/**
+ * Snap a tapped 1/16 step index to the nearest grid cell for the active
+ * quantize setting. "off" returns the original index untouched.
+ * - quantize "8" snaps to even cells (0, 2, 4, …, 30) — every 1/8 note.
+ * - quantize "4" snaps to multiples of 4 (0, 4, 8, …, 28) — every 1/4 note.
+ * Result is clamped to [0, STEPS-1].
+ */
+function snapStep(step: number, quantize: "off" | "8" | "4"): number {
+  if (quantize === "off") return step;
+  const grid = quantize === "8" ? 2 : 4;
+  const snapped = Math.round(step / grid) * grid;
+  return Math.max(0, Math.min(STEPS - 1, snapped));
+}
+
 function stylePattern(s: Style, jitter = false): boolean[][] {
   return s.pattern.map((row) => {
     const arr = Array(STEPS).fill(false) as boolean[];
