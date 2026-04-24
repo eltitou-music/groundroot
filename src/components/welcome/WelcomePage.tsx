@@ -1,11 +1,12 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
 import { useNavigate, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { HelpCircle, Sprout } from "lucide-react";
+import { HelpCircle, Sprout, BookHeart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { RootSystem } from "@/components/welcome/RootSystem";
+import { findTodaySet, getOrCreateTodaySet, ensureUserId } from "@/utils/today-set";
 
 type Destination = {
   label: string;
@@ -38,13 +39,29 @@ const intentionTemplates: IntentionTemplate[] = [
 export function WelcomePage() {
   const navigate = useNavigate();
   const [intention, setIntention] = useState("");
+  const [dedicatedTo, setDedicatedTo] = useState("");
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [todaySetId, setTodaySetId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    let cancelled = false;
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (cancelled) return;
       setUserId(data.session?.user.id ?? null);
+      const uid = data.session?.user.id;
+      if (!uid) return;
+      try {
+        const today = await findTodaySet(uid);
+        if (cancelled || !today) return;
+        setTodaySetId(today.id);
+        if (today.intention) setIntention(today.intention);
+        if (today.dedicated_to) setDedicatedTo(today.dedicated_to);
+      } catch {
+        /* ignore */
+      }
     });
+    return () => { cancelled = true; };
   }, []);
 
   // Commit path: user explicitly wants a setlist. Creates session + sets row.
@@ -52,29 +69,23 @@ export function WelcomePage() {
     if (saving) return;
     setSaving(true);
     try {
-      let uid = userId;
-      if (!uid) {
-        const { data, error } = await supabase.auth.signInAnonymously();
-        if (error) throw error;
-        uid = data.user?.id ?? null;
-        setUserId(uid);
-      }
-      if (!uid) throw new Error("No session");
-
+      const uid = await ensureUserId();
+      setUserId(uid);
       const finalIntention = (overrideIntention ?? intention).trim();
-
-      const { data: setRow, error } = await supabase
-        .from("sets")
-        .insert({
-          user_id: uid,
-          title: "Untitled set",
-          intention: finalIntention || null,
-        })
-        .select()
-        .single();
-      if (error) throw error;
-
-      navigate({ to: "/assembly/$setId", params: { setId: setRow.id } });
+      const today = await getOrCreateTodaySet(uid, finalIntention, dedicatedTo);
+      // If we resumed an existing set but the user has typed a fresh intention,
+      // update the row so the dedication thread stays current.
+      if (!today.isFresh && (finalIntention || dedicatedTo.trim())) {
+        await supabase
+          .from("sets")
+          .update({
+            intention: finalIntention || today.intention,
+            dedicated_to: dedicatedTo.trim() || today.dedicated_to,
+          })
+          .eq("id", today.id);
+      }
+      setTodaySetId(today.id);
+      navigate({ to: "/assembly/$setId", params: { setId: today.id } });
     } catch (e) {
       console.error(e);
       toast.error("Couldn't start your set. Please try again.");
@@ -87,9 +98,13 @@ export function WelcomePage() {
   // No DB write, no session — pure routing.
   const goToPillar = (to: Destination["to"], overrideIntention?: string) => {
     const finalIntention = (overrideIntention ?? intention).trim();
+    const finalDedication = dedicatedTo.trim();
+    const search: { intention?: string; dedicatedTo?: string } = {};
+    if (finalIntention) search.intention = finalIntention;
+    if (finalDedication) search.dedicatedTo = finalDedication;
     navigate({
       to,
-      search: finalIntention ? { intention: finalIntention } : undefined,
+      search: Object.keys(search).length > 0 ? search : undefined,
     });
   };
 
@@ -156,6 +171,18 @@ export function WelcomePage() {
             );
           })}
         </svg>
+        {/* Drifting paper plane — "this is going somewhere / to someone" */}
+        <motion.svg
+          aria-hidden
+          viewBox="0 0 24 24"
+          initial={{ x: "-10%", y: 28, opacity: 0 }}
+          animate={{ x: "110%", y: 18, opacity: [0, 0.85, 0.85, 0] }}
+          transition={{ duration: 22, repeat: Infinity, ease: "linear", delay: 1.2 }}
+          className="absolute top-[28%] h-4 w-4 text-foreground/60"
+        >
+          <path d="M22 2L11 13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none" />
+          <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" fill="currentColor" fillOpacity="0.15" />
+        </motion.svg>
       </div>
 
       {/* === MAIN CONTENT === */}
@@ -177,7 +204,7 @@ export function WelcomePage() {
           className="mt-4 flex flex-col items-center"
         >
           <p className="font-display text-base italic text-foreground/80 md:text-lg">
-            Where every set takes root
+            A place to plant something for someone.
           </p>
           <span
             aria-hidden
@@ -200,7 +227,7 @@ export function WelcomePage() {
               value={intention}
               onChange={(e) => setIntention(e.target.value)}
               onKeyDown={onKeyDown}
-              placeholder="I want to make a mixtape for my girlfriend, make a cool beat, etc."
+              placeholder="What do you want to say? (e.g. a slow morning for E.)"
               autoFocus
               className={cn(
                 "w-full bg-transparent py-3 pr-10 text-base text-foreground",
@@ -224,6 +251,34 @@ export function WelcomePage() {
               <Sprout className="h-4 w-4" />
             </button>
           </div>
+
+          {/* Dedication line — quiet, optional */}
+          <div className="mt-3 px-6">
+            <input
+              type="text"
+              value={dedicatedTo}
+              onChange={(e) => setDedicatedTo(e.target.value)}
+              placeholder="for… (optional)"
+              maxLength={120}
+              className={cn(
+                "w-full border-0 border-b border-transparent bg-transparent py-1.5 text-sm italic text-foreground/80",
+                "placeholder:italic placeholder:text-muted-foreground/45",
+                "focus:border-warm-link/40 focus:outline-none",
+              )}
+            />
+          </div>
+
+          {todaySetId && (
+            <p className="mt-3 text-center text-[11px] text-muted-foreground/70">
+              <button
+                type="button"
+                onClick={() => navigate({ to: "/assembly/$setId", params: { setId: todaySetId } })}
+                className="italic text-warm-link/80 underline decoration-dotted underline-offset-4 hover:text-warm-link"
+              >
+                Resume today's set →
+              </button>
+            </p>
+          )}
 
           {/* One-tap intention templates */}
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
@@ -256,7 +311,7 @@ export function WelcomePage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 0.7, ease: "easeOut" }}
-          className="mt-12 flex flex-wrap items-center justify-center gap-2 text-sm tracking-wide"
+          className="mt-12 flex flex-wrap items-center justify-center gap-1.5 text-sm tracking-wide opacity-90"
         >
           {destinations.map((dest) => (
             <button
@@ -264,13 +319,13 @@ export function WelcomePage() {
               type="button"
               onClick={() => goToPillar(dest.to)}
               className={cn(
-                "group flex flex-col items-center gap-0.5 rounded-2xl border border-warm-link/30 bg-card/30 px-4 py-2 text-center backdrop-blur-sm transition-all",
-                "hover:border-warm-link hover:bg-warm-link/10",
+                "group flex flex-col items-center gap-0.5 rounded-2xl border border-warm-link/20 bg-card/20 px-3 py-1.5 text-center backdrop-blur-sm transition-all",
+                "hover:border-warm-link/60 hover:bg-warm-link/10",
               )}
               title={`Go to ${dest.label} — ${dest.hint}`}
             >
-              <span className="font-display italic text-warm-link">{dest.label}</span>
-              <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 group-hover:text-foreground/80">
+              <span className="font-display text-sm italic text-warm-link/80 group-hover:text-warm-link">{dest.label}</span>
+              <span className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground/60 group-hover:text-foreground/80">
                 {dest.hint}
               </span>
             </button>
@@ -282,6 +337,14 @@ export function WelcomePage() {
             title="About GroundRoot"
           >
             <HelpCircle className="h-3.5 w-3.5" />
+          </Link>
+          <Link
+            to="/journal"
+            aria-label="Open journal"
+            className="ml-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-warm-link/40 text-warm-link transition-colors hover:border-warm-link hover:bg-warm-link/10"
+            title="Journal — what landed"
+          >
+            <BookHeart className="h-3.5 w-3.5" />
           </Link>
         </motion.div>
       </div>
