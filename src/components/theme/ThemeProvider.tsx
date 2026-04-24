@@ -9,7 +9,8 @@ type ThemeContextValue = {
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
-const STORAGE_KEY = "groundroot-theme";
+const STORAGE_KEY = "osmose-theme";
+const LEGACY_STORAGE_KEY = "groundroot-theme";
 
 function applyTheme(theme: Theme) {
   if (typeof document === "undefined") return;
@@ -23,7 +24,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+      let stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+      if (!stored) {
+        const legacy = localStorage.getItem(LEGACY_STORAGE_KEY) as Theme | null;
+        if (legacy === "light" || legacy === "dark") {
+          stored = legacy;
+          try { localStorage.setItem(STORAGE_KEY, legacy); } catch { /* ignore */ }
+        }
+      }
       const initial: Theme = stored === "light" || stored === "dark" ? stored : "dark";
       setThemeState(initial);
       applyTheme(initial);

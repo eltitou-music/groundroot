@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation } from "@tanstack/react-router";
 import { Sparkles, Layers, Music, Library, Sliders, Info, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
-import logo from "@/assets/groundroot-logo.png";
+import logo from "@/assets/osmose-logo.png";
 
 type NavItem = {
   label: string;
@@ -30,11 +30,11 @@ export function AppShell() {
           <Link to="/" className="flex items-center gap-2">
             <img
               src={logo}
-              alt="GroundRoot"
+              alt="Osmose"
               className="h-8 w-8 object-contain"
             />
             <span className="font-display text-lg text-gradient-brand-strong">
-              GroundRoot
+              Osmose
             </span>
           </Link>
         </div>
