@@ -67,41 +67,74 @@ export type Database = {
         }
         Relationships: []
       }
+      set_renders: {
+        Row: {
+          id: string
+          rendered_at: string
+          set_id: string
+          wav_url: string
+        }
+        Insert: {
+          id?: string
+          rendered_at?: string
+          set_id: string
+          wav_url: string
+        }
+        Update: {
+          id?: string
+          rendered_at?: string
+          set_id?: string
+          wav_url?: string
+        }
+        Relationships: []
+      }
       sets: {
         Row: {
           cover_image_url: string | null
           created_at: string
+          dedicated_to: string | null
           id: string
           ideal_arc: string | null
           intention: string | null
+          is_public: boolean
+          notes: string | null
           occasion: string | null
           title: string
           updated_at: string
           user_id: string
+          view_count: number
           vision_notes: string | null
         }
         Insert: {
           cover_image_url?: string | null
           created_at?: string
+          dedicated_to?: string | null
           id?: string
           ideal_arc?: string | null
           intention?: string | null
+          is_public?: boolean
+          notes?: string | null
           occasion?: string | null
           title?: string
           updated_at?: string
           user_id: string
+          view_count?: number
           vision_notes?: string | null
         }
         Update: {
           cover_image_url?: string | null
           created_at?: string
+          dedicated_to?: string | null
           id?: string
           ideal_arc?: string | null
           intention?: string | null
+          is_public?: boolean
+          notes?: string | null
           occasion?: string | null
           title?: string
           updated_at?: string
           user_id?: string
+          view_count?: number
           vision_notes?: string | null
         }
         Relationships: []
@@ -298,7 +331,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_set_view: { Args: { _set_id: string }; Returns: undefined }
     }
     Enums: {
       track_source: "spotify" | "drive" | "upload" | "manual"
