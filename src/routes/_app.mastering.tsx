@@ -404,10 +404,6 @@ function ControlRow({
   );
 }
 
-function Divider() {
-  return <div className="my-5 h-px w-full bg-border/40" />;
-}
-
 function fmtDb(n: number) {
   const sign = n > 0 ? "+" : "";
   return `${sign}${n.toFixed(1)} dB`;
