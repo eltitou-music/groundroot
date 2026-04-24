@@ -1,153 +1,113 @@
-# GroundRoot v0.9 — Plan
 
-## North star (from Tristan's intention notes)
+# GroundRoot — Iteration 02 (from Test Notes 01)
 
-- Software for artistic expression that **removes friction between intention and output**
-- **Play first, curate second** — Tyler the Creator's "create like an artist, curate like a scientist"
-- Calm, child-like, inviting — works *with* an ADHD mind, not against it
-- Every screen should feel like it's transmitting from a place of love, not anxiety
-
-Three principles drive every change below:
-
-1. **One breath to start.** Never more than one input between the user and sound.
-2. **Play, then keep.** Capture happens silently in the background; the user is never asked "do you want to save this?"
-3. **One spine.** Beatmaker → Library → Assembly → Mastery is one continuous river. Each pillar hands off to the next with the *same intention* preserved.
+Plan addresses Tristan's six feedback themes: shell cleanup, Beatmaker default tracks, broken back-buttons, hand-off flow Beatmaker↔Library↔Assembly, Mastery rebuild, and a playful top navigator. Studio-Ghibli landing direction is staged as a follow-up move.
 
 ---
 
-## What's there today (honest read)
+## Move 1 — App shell cleanup (everywhere except Welcome)
 
+**Goal:** "Color palette + logo only on the first page."
 
-| Pillar    | State                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Friction we'll remove                                                                | &nbsp;                                                                      | &nbsp; |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- | ------ |
-| Welcome   | Beautiful, but pushes everyone straight into Assembly via `sets` insert                                                                                                                                                                                                                                                                                                                                                                                              | Asks for a setlist before the user has played a note                                 | &nbsp;                                                                      | &nbsp; |
-| Beatmaker | Functional 6-voice 32-step grid. Include options for house, r&b, jazz, electronic, techno & other styles of beats. Keep it 10 max                                                                                                                                                                                                                                                                                                                                    | Dead-end: nothing carries forward; voices named like a drum machine, not like a body | &nbsp;                                                                      | &nbsp; |
-| Library   | Prompt + suggestions + multi-source aggregation works well. Digest the description of the sound into something comestible for the user, not just the plain text from the archive tool, keep the source name minimal, almost invisble. Add a visual descriptor of the sound, with some animation too (ex: falling raindrops, moving air in the bushes, etc.)                                                                                                          | Results don't feed Assembly; no preview audio in-card                                | &nbsp;                                                                      | &nbsp; |
-| Assembly  | Should have 5 tracks to start with an easy to access button at the bottom to add more. We want SPACE for the user to think and get creative.                                                                                                                                                                                                                                                                                                                         | &nbsp;                                                                               | Confusing — one is a fake DAW, the other is the real intention-anchored set | &nbsp; |
-| Mastery   | This place should feel like the pressure cooker where you are burning to release the set because it's so good. It should give you the showcase of the entire track/set in the middle, show the energy level throughout the set, and at the top give intelligent options to improve it overall (reduce clipping, adapt for club, or studio, add more bass on transitions, repair, etc.). Then it should have buttons in the top right to SHARE to SoundCloud to start | &nbsp;                                                                               | Disconnected from the set being assembled                                   | &nbsp; |
+- Edit `src/components/layout/AppShell.tsx`:
+  - Read current pathname via `useLocation()`.
+  - Render the GroundRoot logo + wordmark **only** when path is `/welcome` or `/`.
+  - Render `ThemeToggle` only on `/welcome`.
+  - On every other route the header becomes a thin transparent strip that just hosts the new top navigator (Move 5) — no logo, no palette.
+- Remove the `pt-20` worth of breathing-room conflicts on Beatmaker / Library / Mastering / Assembly that currently collide with the floating logo.
 
+## Move 2 — Fix navigation interference
 
----
+**Goal:** "Buttons redirect back to first page instead of functioning properly."
 
-## The plan — five focused moves
+Root cause from test: several in-page actions wrap content in a `<Link to="/welcome">` parent or share a click target. We will:
 
-### Move 1 — Welcome becomes a **fork, not a funnel**
+- Audit `_app.beatmaker.tsx`, `_app.library.tsx`, `_app.mastering.tsx` for any element nested inside a Link/anchor where the inner button has its own `onClick`. Replace nested `<Link>`s with explicit `useNavigate()` calls on the back chevron only.
+- Ensure transport buttons (Play, Reseed, Quantize, Style chips) call `e.stopPropagation()` where they currently bubble into a parent navigation handler.
 
-Today the welcome page only knows one verb: "start a set". That's too heavy when the user just wants to *play*.
+## Move 3 — Beatmaker default to 5 voices + hand-off
 
-Change the intention input behavior:
+**Goal:** "Only 4 tracks available, requested 5" + "direct export from beat maker to assembly."
 
-- The four destination words below the input (`Beatmaker · Library · Assembly · Mastery`) become **the actual decision** — when the user types an intention and hits one, we route there *with the intention attached as a query param*.
-- Default action on Enter / arrow stays the current "start a set", but it's no longer the only door.
-- Templates (Sunset brunch, Techno night…) gain the same fork — long-press / right-side dot to choose where they land.
+- `src/routes/_app.beatmaker.tsx`:
+  - Default `visibleVoices` state to **5** (Heart, Clap, Whisper, Spark, Bloom). Pulse remains togglable as a 6th.
+  - Add a "+ voice" / "− voice" pair in the voice rail so the count is user-driven (3–6).
+- Add a **"Send to Assembly"** primary button in the transport bar:
+  - Renders the current 32-step pattern to a WAV blob (offline `OfflineAudioContext`), uploads it to Supabase Storage `sketches/`, inserts a row in `tracks` with `source = 'beatmaker'`, and navigates to `/assembly/$setId`.
+  - If no set exists yet, create one on the fly using the carried `intention` query param (reuses `handleCommitToSet`).
+- Add a secondary **"Save sketch"** that just stores the pattern JSON without leaving.
 
-Result: a 27-year-old with ADHD can type "make a cool beat" + tap **Beatmaker** and be in the grid in one tap, with that intention pinned at the top.
+## Move 4 — Library quick-import to Assembly + source-bottom-left
 
-### Move 2 — Beatmaker: **Play Mode** + silent capture
+**Goal:** "Library should have quick import button to assembly" (and finalize last iter's "source at bottom left").
 
-Reframe the page around play, not production.
+- `src/routes/_app.library.tsx` / `src/utils/library.functions.ts`:
+  - Each suggestion card grows an **"→ Assembly"** icon button (top-right of card) that inserts the track into the current set (or creates one) and navigates.
+  - Confirm the source attribution chip (FMA / archive.org / OpenMusicArchive) is rendered **bottom-left** of each card with a small globe icon and a hover tooltip explaining why this source was chosen ("free to share & remix" etc.) — this directly serves the "trust" goal from the previous iteration.
 
-- **Voices renamed** to body words: Heart (kick), Clap (snare), Whisper (hat), Spark (perc). Same sounds — different invitation.
-- **"Just play" empty state**: when the grid is blank, a single ghost row pulses gently; tapping anywhere starts a 4-on-the-floor seed so there's *always* sound within one tap.
-- **Silent capture**: every pattern the user touches is auto-saved to a per-session `sketches` row (no "Save" button, ever). A small "Sketches today" pill at the bottom shows the last 3 — tap one to recall it, swipe to discard.
-- **Hand-off to Library**: a single button "Find sounds that fit this" sends the current BPM + pattern fingerprint as the Library prompt seed.
-- **Hand-off to Assembly**: "Plant in a set" creates a `sets` row (with intention from welcome if present) and drops the loop in as track 1.
+## Move 5 — Top "taxi" navigator between pillars
 
-Keep current audio engine as-is — only UI/copy + a `localStorage`-backed sketch stack (DB optional in v0.9).
+**Goal:** "Top navigation bar with scroll arrows between all pages" / "playful, app-radio / taxi-like."
 
-### Move 3 — Library: **preview-in-card** + send-to-Assembly
+- New component `src/components/layout/PillarTaxi.tsx`:
+  - Fixed thin bar at top-center on every non-welcome route.
+  - Shows the current pillar name flanked by `‹` and `›` arrows that cycle through the ordered loop: **Beatmaker → Library → Assembly → Mastery → Beatmaker**.
+  - Each arrow press triggers a small horizontal slide animation (framer-motion) and `navigate()` with the current `intention` preserved as search param.
+  - Optional: a tiny radio-dial style row of dots underneath showing which pillar you're on (4 dots).
+- Mount it inside `AppShell.tsx` (only when not on `/welcome`).
 
-The aggregator already works. What's missing is the closing of the loop.
+## Move 6 — Mastery rebuild around a full waveform
 
-- **Inline preview**: each `TrackCard` gets a 30s preview button (Internet Archive results expose `audio` files in the JSON; FMA/OMA fall back to "open source" link as today).
-- **Source attribution stays bottom-left** (already shipped — keep).
-- **"Add to set" pill**: appears on hover/focus. If the user has an active set (from welcome) it adds to that set's tracks; if not, it offers two paths in a tiny popover: *Start a set with this* / *Save to my crate*.
-- **Trust line stays**: the existing `reason` field ("why we picked this") is now bolder — moved up next to the title at small text size, italic.
+**Goal:** "Mastery tool completely off-target. Should display full track preview with complete sound wave visualization. Effects at top."
 
-### Move 4 — Assembly: **collapse two surfaces into one**
-
-Right now `/assembly` is a generic timeline workspace and `/assembly/$setId` is the intention-anchored set. That's two answers to the same question.
-
-- `/assembly` (no id) becomes a **list of the user's sets** (intention pinned, last-edited timestamp, cover gradient) + a "New set" button. No timeline mock.
-- `/assembly/$setId` is the *only* editor — keep current SourcesPanel / TransitionMap / CoPilot / IntentionPin layout.
-- **Carryover from Beatmaker / Library**: when arriving with `?from=beatmaker&sketchId=…` or `?from=library&trackIds=…`, pre-populate the set and toast "Brought your sketch over."
-- **Empty-state seedling**: when a set has zero tracks, show the `RootSystem` SVG faintly behind the grid with copy "This set is still a seed — drop a sound in."
-
-### Move 5 — Mastery: **bind to the active set**
-
-Mastery is currently a sandbox of sliders. Bind it to a set.
-
-- Route becomes `/mastering/$setId` (with `/mastering` redirecting to the most recent set, or showing a chooser if none).
-- Header reads the set's `intention` and renames the export action: "Render *Sunset brunch* master".
-- Rename presets to **soil profiles** to match the metaphor (already in the prior plan, never shipped):
-  - Club soundsystem → **Festival ground**
-  - Streaming (DSP) → **Open field**
-  - Headphones → **Forest floor**
-  - Car stereo → **Open road**
-- Export remains disabled placeholder (no DSP yet) but the UI now feels like the *end* of one journey, not a standalone tool.
-
----
-
-## Cross-cutting polish (cheap, high-impact)
-
-- **Replace anonymous sign-in trigger** on welcome with a deferred trigger — user only gets a session when they *actually* commit to a set or save a sketch. Today every page-load with intention text creates a session, which clutters the DB.
-- **Page metadata cleanup**: Beatmaker still says "Pio - Near" in `<head>`, Mastery same, welcome route file too. Sweep all four to GroundRoot with per-page social previews.
-- **Consistent back affordance**: every pillar's "← Back" goes to `/welcome` today. Keep, but add a soft breadcrumb under the H1 showing the carried intention ("from your intention: *Sunset brunch*") when present — this is the visible thread that ties the spine together.
-
----
-
-## Technical sketch (for reference, skip if non-technical)
+Restructure `_app.mastering.tsx` from "controls left, meter right" to a vertical stack:
 
 ```text
-welcome
- ├─ intention typed
- ├─ chooses destination chip → routed with ?intention=…
- └─ (no DB write until commit)
-
-beatmaker
- ├─ localStorage: gr.sketches[] (id, bpm, pattern, ts)
- ├─ "Find sounds that fit"  → /library?seed=<sketchId>
- └─ "Plant in a set"        → POST sets, POST tracks, → /assembly/$setId
-
-library
- ├─ preview button uses IA's audio.* file URLs (already in API response)
- ├─ "Add to set" → POST tracks(set_id, source_url, source, title, artist)
- └─ trust line ("why") promoted next to title
-
-assembly
- ├─ /assembly             → list of user's sets (replaces timeline mock)
- ├─ /assembly/$setId      → existing intention-anchored editor (kept)
- └─ accepts ?from=…&sketchId|trackIds for handoff
-
-mastering
- ├─ /mastering            → redirect to latest set or chooser
- └─ /mastering/$setId     → existing UI, bound to set, renamed presets
+┌───────────────────────────────────────────────────┐
+│  EFFECTS RAIL (chips: Loudness, EQ, Width, Glue)  │ ← top
+├───────────────────────────────────────────────────┤
+│                                                   │
+│   FULL-WIDTH WAVEFORM (entire set, scrubbable)    │ ← center, dominant
+│   playhead • zoom • loop region                   │
+│                                                   │
+├───────────────────────────────────────────────────┤
+│  Translate-to presets · Render master button      │ ← bottom
+└───────────────────────────────────────────────────┘
 ```
 
-DB-wise this only needs:
+- Add `wavesurfer.js` (already Worker-friendly) to render the waveform.
+- Source: load the latest assembled set's stitched preview from Supabase Storage; fall back to a placeholder sine sweep when nothing is assembled yet so the page is never empty.
+- Effects chips at top open a popover with the existing sliders (Loudness, 3-band EQ, Width, Glue) — keeps current logic but moves it out of the main visual hierarchy.
+- Output meter is folded into a thin LUFS strip directly under the waveform.
 
-- A `sketches` table (optional in v0.9 — `localStorage` is fine for first cut)
-- `tracks` to accept Library imports (likely already supports it; will verify before writing migration)
+## Move 7 — Memory + landing direction (staged)
 
-No new dependencies. No edge functions. No external API keys. Purely composition + copy + routing changes on top of what we shipped.
-
----
-
-## What I'm explicitly *not* doing in v0.9
-
-- Real DSP / mastering engine (still placeholder export)
-- Real audio rendering in Assembly timeline
-- Sample-chopping in Beatmaker
-- AI features beyond the existing CoPilot panel — Tristan's note is about removing friction, not piling on AI
+- Save `mem://design/landing-direction` recording the Studio-Ghibli / earthy vibe target so future passes don't re-propose the current style.
+- This iteration does **not** redesign the landing page (out of scope for one move) — it stays as-is until we run a focused "Welcome reskin" pass.
 
 ---
 
-## Order of work (one batch each, in build mode)
+## Technical notes
 
-1. Welcome: chip-as-fork + deferred auth + meta sweep
-2. Beatmaker: copy + sketch capture + two hand-off buttons
-3. Library: preview button + add-to-set + trust line promotion
-4. Assembly: split surfaces (list vs editor) + intention breadcrumb + handoff acceptance
-5. Mastery: bind to set + soil-profile rename + intention-aware export label
+**Files to edit**
+- `src/components/layout/AppShell.tsx` — conditional logo, mount taxi
+- `src/routes/_app.beatmaker.tsx` — 5 default voices, +/− voice control, hand-off buttons, offline render
+- `src/routes/_app.library.tsx` + `src/utils/library.functions.ts` — per-card Assembly button, confirm source chip placement
+- `src/routes/_app.mastering.tsx` — full restructure around waveform
+- `src/routes/__root.tsx` — no change required
 
-Approve and I'll start with move 1.
+**Files to create**
+- `src/components/layout/PillarTaxi.tsx`
+- `src/utils/beatmaker-export.ts` — `OfflineAudioContext` → WAV blob helper
+- `mem://design/landing-direction` + index update
+
+**New dependency**
+- `wavesurfer.js` (added via `bun add` before import)
+
+**Backend**
+- Reuse existing `sets` and `tracks` tables. Add a Supabase Storage bucket `sketches` (public read) if it doesn't already exist, via migration.
+
+**Out of scope for this iteration** (call out so it isn't expected)
+- Studio-Ghibli landing redesign
+- Real DSP on Mastery (still preview-grade)
+- Multi-user collaboration on a set
