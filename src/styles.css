@@ -52,6 +52,7 @@
   --color-line-smooth: var(--line-smooth);
   --color-line-workable: var(--line-workable);
   --color-line-abrupt: var(--line-abrupt);
+  --color-warm-link: var(--warm-link);
   --font-display: "Fraunces", Georgia, serif;
   --font-sans: "Inter", system-ui, sans-serif;
 }
@@ -89,6 +90,8 @@
   --line-workable: oklch(0.7 0.17 240);
   --line-abrupt: oklch(0.6 0.22 25);
 
+  --warm-link: oklch(0.55 0.18 70);
+
   --chart-1: oklch(0.6 0.18 240);
   --chart-2: oklch(0.7 0.17 160);
   --chart-3: oklch(0.6 0.2 300);
@@ -113,9 +116,15 @@
   );
   --gradient-brand-strong: linear-gradient(
     100deg,
-    oklch(0.55 0.24 250) 0%,
-    oklch(0.7 0.2 155) 50%,
-    oklch(0.5 0.27 305) 100%
+    oklch(0.5 0.16 250) 0%,
+    oklch(0.62 0.14 160) 50%,
+    oklch(0.45 0.18 300) 100%
+  );
+  --gradient-brand-radial: radial-gradient(
+    ellipse at center,
+    oklch(0.78 0.16 220) 0%,
+    oklch(0.7 0.18 160) 50%,
+    oklch(0.55 0.24 300) 100%
   );
   --shadow-glow: 0 20px 60px -20px oklch(0.6 0.2 240 / 0.35);
 }
