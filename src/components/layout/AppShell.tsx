@@ -12,11 +12,11 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { label: "Intro", to: "/", icon: Sparkles },
-  { label: "Assembly", to: "/assembly", icon: Layers },
-  { label: "Beatmaker", icon: Music, comingSoon: true },
-  { label: "Library", icon: Library, comingSoon: true },
-  { label: "Mastering", icon: Sliders, comingSoon: true },
-  { label: "About", icon: Info, comingSoon: true },
+  { label: "Beatmaker", to: "/beatmaker", icon: Music },
+  { label: "Library", to: "/library", icon: Library },
+  { label: "Mastering", to: "/mastering", icon: Sliders },
+  { label: "Assembly", to: "/", icon: Layers },
+  { label: "About", to: "/about", icon: Info },
 ];
 
 export function AppShell() {

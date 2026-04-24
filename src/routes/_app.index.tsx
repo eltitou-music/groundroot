@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState, type KeyboardEvent } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
@@ -13,15 +13,15 @@ export const Route = createFileRoute("/_app/")({
 type Destination = {
   label: string;
   action?: "start";
-  comingSoon?: boolean;
+  to?: "/beatmaker" | "/library" | "/mastering" | "/about";
 };
 
 const destinations: Destination[] = [
+  { label: "Beatmaker", to: "/beatmaker" },
+  { label: "Library", to: "/library" },
+  { label: "Mastering", to: "/mastering" },
   { label: "Assembly", action: "start" },
-  { label: "Beatmaker", comingSoon: true },
-  { label: "Library", comingSoon: true },
-  { label: "Mastering", comingSoon: true },
-  { label: "About", comingSoon: true },
+  { label: "About", to: "/about" },
 ];
 
 function IntroPage() {
@@ -145,13 +145,13 @@ function IntroPage() {
         >
           {destinations.map((dest, i) => (
             <span key={dest.label} className="flex items-center gap-3">
-              {dest.comingSoon ? (
-                <span
-                  title="coming soon"
-                  className="cursor-not-allowed text-warm-link/40"
+              {dest.to ? (
+                <Link
+                  to={dest.to}
+                  className="text-warm-link transition-opacity hover:opacity-70"
                 >
                   {dest.label}
-                </span>
+                </Link>
               ) : (
                 <button
                   type="button"
