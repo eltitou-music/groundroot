@@ -1,7 +1,9 @@
 import { useNavigate, useLocation, useSearch } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * The "taxi" — a tiny top-center navigator that cycles between the four
@@ -25,19 +27,50 @@ function matchedPillarIndex(pathname: string): number {
 export function PillarTaxi() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  // Loose access: every pillar route accepts ?intention=, but other routes
-  // may not, so we read it strictly: undefined when absent.
-  const search = useSearch({ strict: false }) as { intention?: string };
+  // Loose access: every pillar route accepts ?intention= (and ?dedicatedTo=),
+  // but other routes may not, so we read loosely.
+  const search = useSearch({ strict: false }) as {
+    intention?: string;
+    dedicatedTo?: string;
+  };
+
+  const [todaySetId, setTodaySetId] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: sess } = await supabase.auth.getSession();
+      const uid = sess.session?.user.id;
+      if (!uid) return;
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data } = await supabase
+        .from("sets")
+        .select("id")
+        .eq("user_id", uid)
+        .gte("updated_at", since)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (cancelled) return;
+      setTodaySetId(data?.[0]?.id ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [pathname]);
 
   const idx = matchedPillarIndex(pathname);
   if (idx === -1) return null; // we're not on a pillar route
+
+  const carrySearch = (() => {
+    const out: { intention?: string; dedicatedTo?: string } = {};
+    if (search.intention) out.intention = search.intention;
+    if (search.dedicatedTo) out.dedicatedTo = search.dedicatedTo;
+    return Object.keys(out).length > 0 ? out : undefined;
+  })();
 
   const go = (delta: 1 | -1) => {
     const next = (idx + delta + PILLARS.length) % PILLARS.length;
     const target = PILLARS[next].to as PillarPath;
     navigate({
       to: target,
-      search: search.intention ? { intention: search.intention } : undefined,
+      search: carrySearch,
     });
   };
 
@@ -88,6 +121,18 @@ export function PillarTaxi() {
             />
           ))}
         </div>
+
+        {/* Home base — today's set */}
+        {todaySetId && (
+          <button
+            onClick={() => navigate({ to: "/assembly/$setId", params: { setId: todaySetId } })}
+            aria-label="Today's set"
+            title="Today's set"
+            className="ml-1 flex h-7 w-7 items-center justify-center rounded-full border-l border-border/40 pl-1.5 text-warm-link/70 transition-colors hover:text-warm-link"
+          >
+            <Home className="h-3 w-3" />
+          </button>
+        )}
       </div>
     </div>
   );

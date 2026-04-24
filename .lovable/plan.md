@@ -1,113 +1,103 @@
 
-# GroundRoot — Iteration 02 (from Test Notes 01)
+# GroundRoot — Iteration 03
 
-Plan addresses Tristan's six feedback themes: shell cleanup, Beatmaker default tracks, broken back-buttons, hand-off flow Beatmaker↔Library↔Assembly, Mastery rebuild, and a playful top navigator. Studio-Ghibli landing direction is staged as a follow-up move.
+**Intention from the notes (Tristan, today):** GroundRoot is *first* a personal expression platform — a tool to perform and share love and worldview with a broader audience, dedicated to one person who represents true love. Tristan is patient zero. Don't scale yet — prove the tool delivers actual intention, then let viral happen.
 
----
-
-## Move 1 — App shell cleanup (everywhere except Welcome)
-
-**Goal:** "Color palette + logo only on the first page."
-
-- Edit `src/components/layout/AppShell.tsx`:
-  - Read current pathname via `useLocation()`.
-  - Render the GroundRoot logo + wordmark **only** when path is `/welcome` or `/`.
-  - Render `ThemeToggle` only on `/welcome`.
-  - On every other route the header becomes a thin transparent strip that just hosts the new top navigator (Move 5) — no logo, no palette.
-- Remove the `pt-20` worth of breathing-room conflicts on Beatmaker / Library / Mastering / Assembly that currently collide with the floating logo.
-
-## Move 2 — Fix navigation interference
-
-**Goal:** "Buttons redirect back to first page instead of functioning properly."
-
-Root cause from test: several in-page actions wrap content in a `<Link to="/welcome">` parent or share a click target. We will:
-
-- Audit `_app.beatmaker.tsx`, `_app.library.tsx`, `_app.mastering.tsx` for any element nested inside a Link/anchor where the inner button has its own `onClick`. Replace nested `<Link>`s with explicit `useNavigate()` calls on the back chevron only.
-- Ensure transport buttons (Play, Reseed, Quantize, Style chips) call `e.stopPropagation()` where they currently bubble into a parent navigation handler.
-
-## Move 3 — Beatmaker default to 5 voices + hand-off
-
-**Goal:** "Only 4 tracks available, requested 5" + "direct export from beat maker to assembly."
-
-- `src/routes/_app.beatmaker.tsx`:
-  - Default `visibleVoices` state to **5** (Heart, Clap, Whisper, Spark, Bloom). Pulse remains togglable as a 6th.
-  - Add a "+ voice" / "− voice" pair in the voice rail so the count is user-driven (3–6).
-- Add a **"Send to Assembly"** primary button in the transport bar:
-  - Renders the current 32-step pattern to a WAV blob (offline `OfflineAudioContext`), uploads it to Supabase Storage `sketches/`, inserts a row in `tracks` with `source = 'beatmaker'`, and navigates to `/assembly/$setId`.
-  - If no set exists yet, create one on the fly using the carried `intention` query param (reuses `handleCommitToSet`).
-- Add a secondary **"Save sketch"** that just stores the pattern JSON without leaving.
-
-## Move 4 — Library quick-import to Assembly + source-bottom-left
-
-**Goal:** "Library should have quick import button to assembly" (and finalize last iter's "source at bottom left").
-
-- `src/routes/_app.library.tsx` / `src/utils/library.functions.ts`:
-  - Each suggestion card grows an **"→ Assembly"** icon button (top-right of card) that inserts the track into the current set (or creates one) and navigates.
-  - Confirm the source attribution chip (FMA / archive.org / OpenMusicArchive) is rendered **bottom-left** of each card with a small globe icon and a hover tooltip explaining why this source was chosen ("free to share & remix" etc.) — this directly serves the "trust" goal from the previous iteration.
-
-## Move 5 — Top "taxi" navigator between pillars
-
-**Goal:** "Top navigation bar with scroll arrows between all pages" / "playful, app-radio / taxi-like."
-
-- New component `src/components/layout/PillarTaxi.tsx`:
-  - Fixed thin bar at top-center on every non-welcome route.
-  - Shows the current pillar name flanked by `‹` and `›` arrows that cycle through the ordered loop: **Beatmaker → Library → Assembly → Mastery → Beatmaker**.
-  - Each arrow press triggers a small horizontal slide animation (framer-motion) and `navigate()` with the current `intention` preserved as search param.
-  - Optional: a tiny radio-dial style row of dots underneath showing which pillar you're on (4 dots).
-- Mount it inside `AppShell.tsx` (only when not on `/welcome`).
-
-## Move 6 — Mastery rebuild around a full waveform
-
-**Goal:** "Mastery tool completely off-target. Should display full track preview with complete sound wave visualization. Effects at top."
-
-Restructure `_app.mastering.tsx` from "controls left, meter right" to a vertical stack:
-
-```text
-┌───────────────────────────────────────────────────┐
-│  EFFECTS RAIL (chips: Loudness, EQ, Width, Glue)  │ ← top
-├───────────────────────────────────────────────────┤
-│                                                   │
-│   FULL-WIDTH WAVEFORM (entire set, scrubbable)    │ ← center, dominant
-│   playhead • zoom • loop region                   │
-│                                                   │
-├───────────────────────────────────────────────────┤
-│  Translate-to presets · Render master button      │ ← bottom
-└───────────────────────────────────────────────────┘
-```
-
-- Add `wavesurfer.js` (already Worker-friendly) to render the waveform.
-- Source: load the latest assembled set's stitched preview from Supabase Storage; fall back to a placeholder sine sweep when nothing is assembled yet so the page is never empty.
-- Effects chips at top open a popover with the existing sliders (Loudness, 3-band EQ, Width, Glue) — keeps current logic but moves it out of the main visual hierarchy.
-- Output meter is folded into a thin LUFS strip directly under the waveform.
-
-## Move 7 — Memory + landing direction (staged)
-
-- Save `mem://design/landing-direction` recording the Studio-Ghibli / earthy vibe target so future passes don't re-propose the current style.
-- This iteration does **not** redesign the landing page (out of scope for one move) — it stays as-is until we run a focused "Welcome reskin" pass.
+So Iteration 03 is **not** a feature sprint outward. It's a sharpening inward: make the tool feel like a *personal instrument* aimed at one recipient, with a single living set as the artifact and a clean way to share that artifact out. Everything else recedes.
 
 ---
 
-## Technical notes
+## Move 1 — A "Dedication" thread woven through the app
 
-**Files to edit**
-- `src/components/layout/AppShell.tsx` — conditional logo, mount taxi
-- `src/routes/_app.beatmaker.tsx` — 5 default voices, +/− voice control, hand-off buttons, offline render
-- `src/routes/_app.library.tsx` + `src/utils/library.functions.ts` — per-card Assembly button, confirm source chip placement
-- `src/routes/_app.mastering.tsx` — full restructure around waveform
-- `src/routes/__root.tsx` — no change required
+**Goal:** make the recipient (and the why) ever-present without being maudlin.
 
-**Files to create**
-- `src/components/layout/PillarTaxi.tsx`
-- `src/utils/beatmaker-export.ts` — `OfflineAudioContext` → WAV blob helper
-- `mem://design/landing-direction` + index update
+- Extend the welcome intention model from a single string to:
+  - `intention` (existing, what the set is for)
+  - `dedicatedTo` (optional, who it's for — a name or a phrase like "for E.")
+- On `WelcomePage`, add a small second line under the intention input: *"For… (optional)"* — a bare ghost input that, when filled, is carried along with `intention` in the search params and in the `sets` row.
+- A new `dedicated_to text` column on `sets` (nullable). Migration only — no UI fanfare.
+- Anywhere the intention chip is shown today (Beatmaker, Library, Assembly, Mastering header), append a quiet italic *"for {name}"* when present. This is the emotional through-line that the notes call out.
 
-**New dependency**
-- `wavesurfer.js` (added via `bun add` before import)
+## Move 2 — One "Today's set" instead of many
 
-**Backend**
-- Reuse existing `sets` and `tracks` tables. Add a Supabase Storage bucket `sketches` (public read) if it doesn't already exist, via migration.
+**Goal:** patient-zero usage means Tristan opens the app and *continues yesterday's work*, not "create new set."
 
-**Out of scope for this iteration** (call out so it isn't expected)
-- Studio-Ghibli landing redesign
-- Real DSP on Mastery (still preview-grade)
-- Multi-user collaboration on a set
+- New helper `getOrCreateTodaySet(userId, intention, dedicatedTo)` in `src/utils/today-set.ts`:
+  - Looks up the most recent `sets` row for `user_id` updated in the last 24h; returns it if found, otherwise inserts a new one.
+- Welcome page's seedling button now calls `getOrCreateTodaySet` instead of always inserting. The intention input pre-fills with the active set's intention if one exists.
+- A subtle "Resume today's set" affordance appears on Welcome when a fresh set exists (small text link under the templates).
+- `PillarTaxi` gains a 5th anchor on the right: a tiny circle that always routes to `/assembly/{todaySetId}` — the "home base" for the active artifact.
+
+## Move 3 — Share-It-Out flow (the proof of value)
+
+**Goal:** the notes say *"success depends on output usefulness over time"* and *"shared content proves valuable."* So shipping must feel as good as creating.
+
+- New route `src/routes/_app.share.$setId.tsx`: a public-style preview of one set.
+  - Shows the dedication line big and centered (e.g. *"For E. — a Sunday-morning brunch"*).
+  - Plays the mastered render with the existing waveform.
+  - Footer: small "made with GroundRoot" mark + a copy-link button + a "Download .wav" button.
+- In Mastery, the existing "Render master" button is renamed to **"Render & share"** and on success:
+  - Uploads the mastered WAV to Storage `masters/{setId}.wav` (public bucket).
+  - Inserts/updates a `set_renders` row (`set_id`, `wav_url`, `rendered_at`).
+  - Toasts a copyable share URL pointing at `/share/{setId}` and offers to open it.
+- New `set_renders` table (migration): `id uuid pk`, `set_id uuid fk sets`, `wav_url text`, `rendered_at timestamptz default now()`. RLS: owner can insert/select; anonymous can select rows whose parent set has `is_public = true`.
+- New `is_public boolean default false` column on `sets`. The Mastery share action flips it to true.
+
+## Move 4 — Patient-zero feedback loop (private to Tristan)
+
+**Goal:** the notes call out *"time will determine if shared content proves valuable."* Build a quiet log so Tristan can see whether his shares actually land.
+
+- New route `src/routes/_app.journal.tsx` (linked from Welcome's small footer link only; not in the pillar taxi):
+  - Lists every set Tristan has published, sorted newest first.
+  - Per row: dedication, intention, render date, share URL with copy button, and a tiny *"how did it land?"* free-text field (saved to a new `notes text` column on `sets`).
+  - Optional view counter: a public RPC `increment_set_view(setId)` called from `/share/{setId}` on mount. Display the count in the journal row.
+- This page is the dashboard for the patient-zero hypothesis — useful only to him, no scaling concerns.
+
+## Move 5 — Welcome page tone shift (Ghibli-leaning, dedication-first)
+
+**Goal:** the landing should *feel* like a love letter's envelope, not a SaaS form. Aligns with the previously-staged Ghibli direction without committing to a full reskin.
+
+- Subtle changes only:
+  - Subtitle changes from *"Where every set takes root"* to *"A place to plant something for someone."*
+  - Intention placeholder rewrites to: *"What do you want to say? (e.g. a slow morning for E.)"*
+  - The dawn-sky band gets an extra layer: a single drifting paper-plane silhouette (SVG, framer-motion, slow horizontal drift) — the gentle "this is going somewhere / to someone" cue.
+  - The pillar buttons get a quieter treatment: smaller, lower contrast — they recede so the intention + dedication inputs dominate.
+
+## Out of scope (deliberately deferred)
+
+- Auth / accounts / multi-user. Anonymous + single device is enough for patient zero.
+- Analytics dashboards beyond the personal journal.
+- Any "share to social" integration. The copyable URL is enough; the act of sending it manually is part of the ritual.
+- Visual reskin beyond Move 5's small touches.
+
+---
+
+## Technical details
+
+- **Migrations** (one batch):
+  - `alter table sets add column dedicated_to text, add column is_public boolean not null default false, add column notes text;`
+  - `create table set_renders (...)` with RLS as described.
+  - Public select policy on `sets` and `set_renders` gated on `sets.is_public = true`.
+  - Storage: ensure `masters` bucket exists and is public-read.
+- **New files:**
+  - `src/utils/today-set.ts` — `getOrCreateTodaySet`.
+  - `src/utils/share.ts` — `renderAndPublishSet(setId)` (uploads wav, flips `is_public`, returns URL).
+  - `src/routes/_app.share.$setId.tsx` — public set view (loader fetches via anon client; route is under `_app` but renders a stripped layout — no PillarTaxi when `is_public` viewed without ownership).
+  - `src/routes/_app.journal.tsx` — patient-zero log.
+- **Edited files:**
+  - `src/components/welcome/WelcomePage.tsx` — dedication input, copy tweaks, paper-plane layer, "resume today's set" link.
+  - `src/components/layout/PillarTaxi.tsx` — add a "home base" anchor pointing to today's set; keep `intention` + `dedicatedTo` in carried search params.
+  - `src/utils/intention.ts` — schema gains `dedicatedTo` fallback string.
+  - `src/routes/_app.mastering.tsx` — rename action, wire `renderAndPublishSet`, success toast with share URL.
+  - All four pillar route headers — render *"for {name}"* tag when present.
+- **No changes** to `src/integrations/supabase/client.ts`, `types.ts`, `.env`, or `routeTree.gen.ts`.
+- **Auth:** continue with anonymous sign-in only; do not add login/signup forms in this iteration. Per platform rules this is acceptable because the public `/share/{setId}` flow uses RLS gated on `is_public`, and journal access is gated on `auth.uid() = sets.user_id`.
+
+---
+
+## Why this plan respects the intention
+
+- It refuses to chase a wider customer base before the tool earns it.
+- It puts the recipient and the act of sharing at the structural center of the app — exactly the *"first-person artistic sharing mechanism"* framing.
+- It gives Tristan one durable artifact per day (today's set) instead of fragmenting attention across new sessions.
+- It builds the smallest possible feedback loop (the journal) so "time will tell if it's valuable" can actually be measured by him, privately.
