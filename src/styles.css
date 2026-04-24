@@ -281,9 +281,15 @@
     50% { transform: scale(1.015); }
   }
 
+  @keyframes plantSway {
+    0%, 100% { transform: rotate(-0.6deg); }
+    50% { transform: rotate(0.6deg); }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     body::after { animation: none; }
     .pio-breath { animation: none; }
+    [style*="plantSway"] { animation: none !important; }
   }
 
   h1, h2, h3, .font-display {
