@@ -18,6 +18,21 @@ const destinations: Destination[] = [
   { label: "Mastery", to: "/mastering" },
 ];
 
+type IntentionTemplate = {
+  label: string;
+  emoji: string;
+  intention: string;
+};
+
+const intentionTemplates: IntentionTemplate[] = [
+  { label: "Sunset brunch", emoji: "🌅", intention: "Sunset brunch — warm, jazzy house with a slow golden build" },
+  { label: "Techno night", emoji: "🌑", intention: "Techno night — driving, hypnotic, peak-time energy after midnight" },
+  { label: "House warmup", emoji: "🎚️", intention: "House warmup — deep, groovy, opening the room without rushing" },
+  { label: "Afters", emoji: "🌫️", intention: "Afters — dubby, melodic, dawn comedown for close friends" },
+  { label: "Focus session", emoji: "📚", intention: "Focus session — ambient and minimal, no vocals, long flow state" },
+  { label: "Road trip", emoji: "🚗", intention: "Road trip — uplifting indie and disco, windows-down energy" },
+];
+
 export function WelcomePage() {
   const navigate = useNavigate();
   const [intention, setIntention] = useState("");
@@ -30,7 +45,7 @@ export function WelcomePage() {
     });
   }, []);
 
-  const handleStart = async () => {
+  const handleStart = async (overrideIntention?: string) => {
     if (saving) return;
     setSaving(true);
     try {
@@ -43,12 +58,14 @@ export function WelcomePage() {
       }
       if (!uid) throw new Error("No session");
 
+      const finalIntention = (overrideIntention ?? intention).trim();
+
       const { data: setRow, error } = await supabase
         .from("sets")
         .insert({
           user_id: uid,
           title: "Untitled set",
-          intention: intention.trim() || null,
+          intention: finalIntention || null,
         })
         .select()
         .single();
@@ -63,10 +80,15 @@ export function WelcomePage() {
     }
   };
 
+  const handleTemplate = (tpl: IntentionTemplate) => {
+    setIntention(tpl.intention);
+    void handleStart(tpl.intention);
+  };
+
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      handleStart();
+      void handleStart();
     }
   };
 
