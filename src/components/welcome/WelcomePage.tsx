@@ -1,7 +1,7 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
 import { useNavigate, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { ArrowRight, HelpCircle, Sprout } from "lucide-react";
+import { HelpCircle, Sprout } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
