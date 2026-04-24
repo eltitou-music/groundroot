@@ -276,14 +276,14 @@
     100% { transform: translate(-1.5%, 2%) scale(1.01); }
   }
 
-  @keyframes osmoseBreath {
+  @keyframes pioBreath {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.015); }
   }
 
   @media (prefers-reduced-motion: reduce) {
     body::after { animation: none; }
-    .osmose-breath { animation: none; }
+    .pio-breath { animation: none; }
   }
 
   h1, h2, h3, .font-display {
@@ -331,8 +331,8 @@
     color: var(--warm-link);
   }
 
-  .osmose-breath {
-    animation: osmoseBreath 6s ease-in-out infinite;
+  .pio-breath {
+    animation: pioBreath 6s ease-in-out infinite;
     transform-origin: center;
   }
 }

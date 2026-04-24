@@ -5,10 +5,10 @@ import { ChevronLeft } from "lucide-react";
 export const Route = createFileRoute("/_app/about")({
   head: () => ({
     meta: [
-      { title: "About — GroundRoot" },
-      { name: "description", content: "What GroundRoot is for and where it's going." },
-      { property: "og:title", content: "About — GroundRoot" },
-      { property: "og:description", content: "What GroundRoot is for and where it's going." },
+      { title: "About — Pio - Near" },
+      { name: "description", content: "What Pio - Near is for and where it's going." },
+      { property: "og:title", content: "About — Pio - Near" },
+      { property: "og:description", content: "What Pio - Near is for and where it's going." },
     ],
   }),
   component: AboutPage,
@@ -19,7 +19,7 @@ function AboutPage() {
     <div className="relative flex min-h-[calc(100vh-4rem)] flex-col items-center px-6 py-20">
       <div className="mx-auto w-full max-w-3xl">
         <Link
-          to="/"
+          to="/welcome"
           className="mb-12 inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-warm-link/70 transition-opacity hover:opacity-100"
         >
           <ChevronLeft className="h-3 w-3" />
@@ -42,7 +42,7 @@ function AboutPage() {
           transition={{ duration: 0.8, delay: 0.15, ease: "easeOut" }}
           className="mt-6 max-w-xl text-base text-muted-foreground/80 md:text-lg"
         >
-          GroundRoot is a tool to transcend through music — a workspace for DJs and producers who treat a set as a journey, not a playlist.
+          Pio - Near is a tool to connect the dots through music — a workspace for DJs and producers who treat a set as a journey, not a playlist.
         </motion.p>
 
         <motion.div
