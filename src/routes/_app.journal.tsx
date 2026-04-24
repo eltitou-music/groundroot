@@ -58,9 +58,9 @@ function JournalPage() {
         return;
       }
       setAuthed(true);
-      const { data, error } = await supabase
+      const { data: setsData, error } = await supabase
         .from("sets")
-        .select("id, title, intention, dedicated_to, is_public, view_count, notes, updated_at, set_renders(rendered_at)")
+        .select("id, title, intention, dedicated_to, is_public, view_count, notes, updated_at")
         .order("updated_at", { ascending: false });
       if (cancelled) return;
       if (error) {
@@ -68,11 +68,19 @@ function JournalPage() {
         setLoading(false);
         return;
       }
-      const flattened: JournalRow[] = (data ?? []).map((r: {
-        id: string; title: string; intention: string | null; dedicated_to: string | null;
-        is_public: boolean; view_count: number; notes: string | null; updated_at: string;
-        set_renders?: { rendered_at: string }[];
-      }) => ({
+      const ids = (setsData ?? []).map((s) => s.id);
+      const renderMap = new Map<string, string>();
+      if (ids.length > 0) {
+        const { data: renders } = await supabase
+          .from("set_renders")
+          .select("set_id, rendered_at")
+          .in("set_id", ids)
+          .order("rendered_at", { ascending: false });
+        for (const r of renders ?? []) {
+          if (!renderMap.has(r.set_id)) renderMap.set(r.set_id, r.rendered_at);
+        }
+      }
+      const flattened: JournalRow[] = (setsData ?? []).map((r) => ({
         id: r.id,
         title: r.title,
         intention: r.intention,
@@ -81,7 +89,7 @@ function JournalPage() {
         view_count: r.view_count ?? 0,
         notes: r.notes,
         updated_at: r.updated_at,
-        rendered_at: r.set_renders?.[0]?.rendered_at ?? null,
+        rendered_at: renderMap.get(r.id) ?? null,
       }));
       setRows(flattened);
       setLoading(false);
