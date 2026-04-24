@@ -80,8 +80,17 @@ export function AppShell() {
       </aside>
 
       <main className="flex-1 overflow-x-hidden">
-        <div className="pointer-events-none sticky top-0 z-40 flex justify-end px-4 pt-4 md:px-6">
-          <div className="pointer-events-auto">
+        <div className="pointer-events-none sticky top-0 z-40 flex items-center justify-between px-4 pt-4 md:px-6">
+          <Link
+            to="/"
+            className="pointer-events-auto flex items-center gap-2 md:hidden"
+          >
+            <img src={logo} alt="Osmose" className="h-9 w-9 object-contain" />
+            <span className="font-display text-lg text-gradient-brand-strong">
+              Osmose
+            </span>
+          </Link>
+          <div className="pointer-events-auto ml-auto">
             <ThemeToggle />
           </div>
         </div>

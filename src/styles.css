@@ -220,17 +220,15 @@
     inset: 0;
     pointer-events: none;
     z-index: 0;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320' viewBox='0 0 320 320'><g fill='none' stroke='%23889977' stroke-width='0.6' opacity='0.5'><circle cx='80' cy='90' r='52'/><circle cx='220' cy='70' r='38'/><circle cx='260' cy='200' r='60'/><circle cx='100' cy='240' r='44'/><circle cx='170' cy='160' r='28'/></g></svg>");
-    background-size: 320px 320px;
-    background-repeat: repeat;
-    opacity: 0.18;
-    mix-blend-mode: multiply;
+    background-image: url("/osmose-bg.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.85;
   }
 
   .dark body::before {
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320' viewBox='0 0 320 320'><g fill='none' stroke='%23a8b89a' stroke-width='0.6' opacity='0.6'><circle cx='80' cy='90' r='52'/><circle cx='220' cy='70' r='38'/><circle cx='260' cy='200' r='60'/><circle cx='100' cy='240' r='44'/><circle cx='170' cy='160' r='28'/></g></svg>");
-    opacity: 0.09;
-    mix-blend-mode: screen;
+    opacity: 0.55;
   }
 
   /* Drifting cellular blob layer */

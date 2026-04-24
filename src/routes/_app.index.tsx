@@ -5,8 +5,6 @@ import { ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import logo from "@/assets/osmose-logo.png";
-
 export const Route = createFileRoute("/_app/")({
   component: IntroPage,
 });
@@ -79,14 +77,6 @@ function IntroPage() {
   return (
     <div className="relative flex min-h-[calc(100vh-4rem)] items-center justify-center px-6 py-20">
       <div className="mx-auto flex w-full max-w-[720px] flex-col items-center text-center">
-        <motion.img
-          src={logo}
-          alt="Osmose"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1, ease: "easeOut" }}
-          className="osmose-breath mb-8 h-24 w-24 object-contain md:h-28 md:w-28"
-        />
         <motion.h1
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
