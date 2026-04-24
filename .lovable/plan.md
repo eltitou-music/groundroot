@@ -1,113 +1,136 @@
-## Rebrand to **Pio - Near** + Ghibli-style Welcome page, no sidebar
+## GroundRoot v0.8 — full reimagine
 
-Translate the two pencil sketches into the live app: rename everything from **Osmose** to **Pio - Near**, redesign the landing page in Studio Ghibli watercolor style (sunset over water, plants below, "Connect the dots" tagline), remove the left sidebar entirely, and rename `/` to `/welcome`.
+### Honest preface on the PDF
 
-### 1. Brand rename → **Pio - Near**
+The uploaded `GroundRoot_v0.7.pdf` (51 pages) contains the captured source of the **Claude.ai host page**, not the GroundRoot artifact itself: pages 1-13 are Claude's CSS/JS bundle URLs, pages 14-51 are Claude's French i18n dictionary (Marketplace, Cowork, GitHub app, billing strings). The artifact runs in a sandboxed iframe that print-to-PDF cannot capture, so there is no v0.7 design language to merge from — only the **name** "GroundRoot" is recoverable. This plan therefore reimagines v0.8 as a fresh release rather than a literal merge.
 
-- Wordmark everywhere: `Pio - Near` (with spaces around the dash, exactly as in the sketch).
-- Tagline under the wordmark: **Connect the dots**.
-- Page `<title>`: `Pio - Near — Connect the dots`.
-- Update `__root.tsx` meta (title, description, og:title, og:description, twitter) — drop all "Osmose" / "transcend and share yourself…" copy.
-- Replace `osmose-breath` class + keyframes with `pio-breath` (functionally identical 6s breathing).
-- localStorage theme key `osmose-theme` → `pio-near-theme`, with one-time migration reading the previous key.
-- Asset rename: copy `src/assets/osmose-logo.png` to `src/assets/pio-near-logo.png` (we'll regenerate the actual artwork in step 4); switch every import. Old file untouched.
-- About page copy: replace any Osmose references with Pio - Near.
+### Concept: "GroundRoot" — earthy, grounded, alive
 
-### 2. Welcome page — Studio Ghibli scene
+A musician's intention starts as a seed in fertile ground; the app grows it into a finished set. The visual language replaces Pio-Near's seaside sunset with a **forest-floor / underground-roots** aesthetic — warm earth tones, root-structure motifs, and quiet plant life. Same Studio-Ghibli watercolor technique (pure CSS + SVG, no AI art), reapplied to the new palette.
 
-Rename `src/routes/_app.index.tsx` semantics: keep the file (route `/`), but its component becomes `WelcomePage` and its content is the new scene. Add a new file `src/routes/_app.welcome.tsx` that mounts the **same** `WelcomePage` component at `/welcome`. Make `/` redirect to `/welcome` via TanStack `redirect()` in a `beforeLoad` so the canonical URL is `/welcome`.
+**Palette (replaces Pio-Near's coral/indigo):**
+- `#2A1F17` deep loam (background, dark mode base)
+- `#3D2E20` warm bark (surfaces)
+- `#8B5A2B` clay (primary accent)
+- `#D4A574` honey (secondary, hover)
+- `#6B8E4E` moss green (links, success)
+- `#E8DCC4` parchment (light surfaces)
+- `#C44536` clay-red (destructive / set-fire moments)
 
-**Layout (matches the sketch closely):**
+**Tagline:** "Where every set takes root."
+
+### 1. Brand swap (Pio-Near → GroundRoot)
+
+- Wordmark "GroundRoot" everywhere (single word, capital R).
+- Asset: generate `src/assets/groundroot-logo.png` — a stylized seedling whose root system spreads downward into a vinyl-record groove pattern. Square ~512×512, transparent background.
+- localStorage key: `groundroot-theme` (with one-time migration from `pio-near-theme` and earlier `osmose-theme`).
+- CSS animation rename: `pio-breath` → `root-breath` (same 6s cycle).
+- Meta tags in `__root.tsx` and `_app.welcome.tsx`: title `GroundRoot — Where every set takes root`.
+- About page copy refreshed.
+
+### 2. Welcome page redesign (`src/components/welcome/WelcomePage.tsx`)
+
+Replace the sunset-over-sea hero with a **soil cross-section** scene:
 
 ```text
-┌──────────────────────────────────────────────────────────────────┐
-│  [tiny Pio - Near logo · top-left]                  [theme tgl] │
-│                                                                  │
-│   ╭─ ORANGE-RED SUNSET (top band) ─────────────────────────╮    │
-│   │   sun · sea horizon · distant lighthouse silhouette    │    │
-│   ╰────────────────────────────────────────────────────────╯    │
-│   ~~~~~~~~~~~~~~~~~ water ripples ~~~~~~~~~~~~~~~~~~~~~~~      │
-│                                                                  │
-│              ╔═══════════════════════════════╗                  │
-│              ║         Pio - Near            ║   (display)      │
-│              ║       Connect the dots        ║   (subtitle)     │
-│              ╚═══════════════════════════════╝                  │
-│                                                                  │
-│        ┌───────────────────────────────────────────┐            │
-│        │  Today's intention                        │            │
-│        │  [ I want to make a mixtape for…    →]   │  pill input │
-│        └───────────────────────────────────────────┘            │
-│                                                                  │
-│      Beatmaker · Library · Assembly · Mastery · ( ? )           │
-│                                              about us            │
-│                                                                  │
-│   🌿 monstera   🍋 lemon tree   🌱 tall plant   💜 lavender   🌿 basil  │
-│   (Ghibli-painted plants spanning the bottom edge, illustrative) │
-└──────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│ [GroundRoot logo · top-left]                  [theme toggle] │
+│                                                               │
+│   ╭─ DAWN SKY (slim band, ~18vh) ──────────────────────────╮ │
+│   │   pale honey → parchment, single soft sun              │ │
+│   ╰────────────────────────────────────────────────────────╯ │
+│   ~~~~~~ horizon line of grass blades (SVG) ~~~~~~~~~~~~~~~  │
+│                                                               │
+│              ╔═════════════════════════════╗                 │
+│              ║         GroundRoot          ║   (display)     │
+│              ║ Where every set takes root  ║   (subtitle)    │
+│              ╚═════════════════════════════╝                 │
+│                                                               │
+│        ┌───────────────────────────────────────────┐         │
+│        │  Today's intention                        │         │
+│        │  [ I want to make a mixtape for…    →]   │         │
+│        └───────────────────────────────────────────┘         │
+│                                                               │
+│      🌅 Sunset brunch  🌑 Techno night  🎚️ House warmup      │
+│      🌫️ Afters  📚 Focus session  🚗 Road trip               │
+│                                                               │
+│      Beatmaker · Library · Assembly · Mastery · ( ? )        │
+│                                                               │
+│   ░░░░░░░░░░░░ SOIL LAYER (CSS gradient) ░░░░░░░░░░░░░░░░░  │
+│   ╲╱╲ root system (SVG, branching paths, slow grow) ╱╲╱╲    │
+└───────────────────────────────────────────────────────────────┘
 ```
 
-**Implementation details (all client-rendered, no real photographs):**
+**New visual elements:**
+- **Dawn sky band** at top (replaces sunset hero): pale honey → parchment gradient, single small sun, ~18vh (smaller than v0.7's 38vh).
+- **Grass horizon** (SVG): row of irregular blade silhouettes in moss green, hand-drawn stroke style.
+- **Soil layer** at bottom (replaces plants strip): warm bark-to-loam gradient occupying bottom ~30vh.
+- **Root system** (SVG, ~200 lines): branching paths radiating from below the wordmark down into the soil. Uses `stroke-dasharray` + animation for a slow "growing" effect on first load (respects `prefers-reduced-motion`).
+- **Three small plant sprouts** poke through the grass line at staggered positions, swaying gently (reuses existing `plantSway` keyframes, renamed `rootSway`).
+- Keeps existing intention-template chips, intention input, and destinations row — only restyled to new palette.
 
-- **Sky/sunset (top ~38vh)**: a single full-width hero band built from layered CSS radial + linear gradients (deep indigo → coral → warm orange → golden disc). A blurred amber circle at center represents the sun, with two soft horizontal strokes for cloud bands. SVG silhouette of a small lighthouse/cliff on the right horizon.
-- **Sea (thin band, ~6vh)**: subtle horizontal SVG ripple lines with low opacity, gradient from coral reflection in the center to deeper teal at the edges.
-- **Wordmark**: `Pio - Near` in `Fraunces` display, ~clamp(56px, 9vw, 120px), centered, with a slow `pio-breath` animation. Tagline `Connect the dots` in small caps below, with a thin underline stroke matching the sketch.
-- **Intention input**: pill-shaped (already designed pattern), placeholder *"I want to make a mixtape for my girlfriend, make a cool beat, etc."* — preserves the existing handler that creates a `sets` row and routes to `/assembly/$setId`.
-- **Destinations row**: dot-separated `Beatmaker · Library · Assembly · Mastery · ?`. The first four are real `<Link>`s to `/beatmaker`, `/library`, `/assembly`, `/mastering`. The `?` is a circle button that links to `/about` with hover label "about us".
-- **Plants strip (bottom)**: an SVG illustration row of 5 stylized plants (monstera, lemon tree with small fruit dots, generic tall leafy, lavender stalks, basil). All inline SVG so it inherits theme colors — forest greens for foliage, mustard for lemons, lavender purple for the lavender heads. They sit on a faint cream-to-transparent ground gradient, low opacity (~75%), no harsh edges, hand-drawn stroke style (`stroke-linecap: round`, slight irregular `d` paths) to evoke painted brushwork.
+### 3. Pillar pages redesign
 
-**Ghibli aesthetic technique (no AI art, all CSS/SVG):**
+Each of the four pillar pages gets a small visual identity tied to GroundRoot's earthy theme, while preserving the functional first drafts already shipped.
 
-- Round, organic curves; no sharp corners.
-- Slightly grainy texture (already present via `body` noise SVG).
-- Warm, sun-soaked palette: coral `#E8956B`, sunset orange `#D86A3D`, deep indigo `#2C3E5C`, warm cream sky-base `#F4DEB6`, forest green `#3C5A3F`, lavender `#8A7AB0`, lemon yellow `#E8C547`.
-- Soft drop shadows and gentle gradients, not flat fills, so each illustration element feels watercolor-painted.
-- Subtle parallax: the sun gets a very slow `breath` scale animation; the plant row gets a 12s sway via `transform: rotate` ±0.5deg on each plant with staggered delays.
-- All animations respect `prefers-reduced-motion`.
+**Beatmaker (`_app.beatmaker.tsx`)** — "Plant the seed"
+- Reframe sequencer cells as **soil plots**: rounded squares with warm bark fill, active steps glow honey/clay.
+- Voices renamed visually: Kick → Heart, Snare → Clap, Hat → Whisper, Perc → Spark (functional names, keeps Web Audio synthesis).
+- Transport bar gets a "soil moisture" visualizer: BPM controls a subtle pulsing root pattern in the background.
 
-### 3. Remove the lateral sidebar
+**Library (`_app.library.tsx`)** — "The seed bank"
+- Track cards become **seed-packet cards**: parchment background, hand-drawn label corner, mood badges as botanical tags.
+- Mood filters renamed to growth metaphors: warm → "germinating", dark → "deep roots", hypnotic → "spiraling vine", etc. (label-only; underlying mock data unchanged).
+- Search bar gets a small leaf icon.
 
-- `src/components/layout/AppShell.tsx`: delete the `<aside>` block entirely. Keep a slim sticky top bar that shows the small `Pio - Near` logo + wordmark on the left (linking to `/welcome`) and the `ThemeToggle` on the right. Same bar for mobile and desktop (no more `md:hidden` split).
-- Remove unused imports (`Sparkles`, `Layers`, `Music`, `Library`, `Sliders`, `Info`, `Lock`, `useLocation`, `cn`, `navItems`).
-- All routes still render their own pages; navigation now happens through the destinations row on the welcome page and direct URLs (the user can also use the back button / browser history).
+**Assembly (`_app.assembly.tsx` + `_app.assembly.$setId.tsx`)** — "The garden"
+- Top bar gets a small breadcrumb root motif.
+- The existing multi-track workspace inherits the new theme tokens; no structural change to logic.
+- Empty-state illustration: a single seedling with an empty plot beside it, "Add your first track to start growing your set."
 
-### 4. Logo redraw
+**Mastery (`_app.mastering.tsx`)** — "Harvest"
+- Visual meter restyled as a horizontal **growth ring** (concentric arcs) instead of bars.
+- "Translate to" presets become **soil profiles**: Club → "Festival ground", DSP → "Garden bed", Vinyl → "Forest floor" (label-only).
+- LUFS/EQ controls keep their function; sliders get warm clay-colored thumbs.
 
-Generate a new `src/assets/pio-near-logo.png` matching sketch v1 — the back of a guitar, shaped like the back of a woman with dark hair on the left side, in the wind, with an arrow piercing through and going into the sun. The arrow has feathers at the bottom of the guitar where the cable comes out and connects in the air. The block square on the right of the guitar represents a square cross.  The arrow goes into a **stylized sun** (radiating pencil-style lines with whiteness in the middle (SPACE) with stars), in the new sunset palette (warm orange sun + deep indigo bow + coral string), transparent background, ~512×512. Used in:
+### 4. AppShell + theme system
 
-- top-left of `AppShell`
-- favicon (via `__root.tsx` `links[rel=icon]`)
+- `AppShell.tsx`: new logo, wordmark "GroundRoot", header gets a 1px moss-green underline strip.
+- `ThemeProvider.tsx`: storage key migration chain `osmose-theme` → `pio-near-theme` → `groundroot-theme`.
+- `src/styles.css`:
+  - Add new CSS custom properties for the GroundRoot palette under `:root` and `.dark` (the existing variable names like `--background`, `--foreground`, `--warm-link` get remapped to the new earth palette — no Tailwind class changes needed in any consumer).
+  - Rename keyframes `pio-breath` → `root-breath` and `plantSway` → `rootSway`.
+  - Add a new `rootGrow` keyframe (stroke-dasharray animation) for the welcome-page root system.
+- `__root.tsx`: meta updates only (title, description, og tags, favicon).
 
-### 5. Routing changes
+### 5. New files / asset
 
-- New file `src/routes/_app.welcome.tsx` → component imports and renders the same `WelcomePage` component used at `/`.
-- `src/routes/_app.index.tsx` → keeps file, but adds:
-  ```ts
-  beforeLoad: () => { throw redirect({ to: "/welcome" }); }
-  ```
-  so visiting `/` lands on `/welcome` (canonical). The actual UI lives in `_app.welcome.tsx`.
-- The route tree (`routeTree.gen.ts`) will regenerate automatically when `_app.welcome.tsx` is created.
+- `src/assets/groundroot-logo.png` — generated.
+- No new routes; `/welcome` stays the canonical landing.
+- `src/components/welcome/RootSystem.tsx` — extracted SVG component (~120 lines) for the animated root illustration, kept separate from `WelcomePage.tsx` to keep the latter readable.
 
-### Note on `https://www.pio-near.io/welcome`
+### 6. Out of scope
 
-The literal domain `pio-near.io` is **outside Lovable's control** — it would need to be purchased and pointed at the project as a custom domain (Lovable Cloud → Custom Domains). What this plan delivers in-app:
-
-- The canonical landing path becomes `/welcome` (e.g., `https://<your-lovable-domain>/welcome`).
-- Once you connect `pio-near.io` as a custom domain, that exact URL `https://www.pio-near.io/welcome` will resolve to this Welcome page automatically.
+- Buying the `groundroot.io` domain (user action).
+- Rewriting Web Audio synthesis, Spotify integration, or Supabase schema — purely visual + brand changes plus the small label renames listed above.
+- Real botanical illustrations or photography — everything stays pure CSS/SVG to preserve the painterly Ghibli technique.
 
 ### Files touched
 
-- `src/routes/__root.tsx` — meta + favicon import.
-- `src/routes/_app.tsx` — unchanged structurally (still mounts `AppShell`).
-- `src/components/layout/AppShell.tsx` — drop sidebar, slim top bar with new wordmark.
-- `src/routes/_app.index.tsx` — convert to redirect to `/welcome`.
-- `src/routes/_app.welcome.tsx` — new file, holds the Ghibli `WelcomePage` component.
-- `src/routes/_app.about.tsx` — copy update (Pio - Near).
-- `src/components/theme/ThemeProvider.tsx` — storage key rename + migration from `osmose-theme`.
-- `src/styles.css` — rename `osmose-breath` → `pio-breath`; no other palette change required (existing warm palette already fits the sunset).
-- `src/assets/pio-near-logo.png` — generated new logo; replaces all `osmose-logo` imports.
+| File | Change |
+|---|---|
+| `src/assets/groundroot-logo.png` | new (generated) |
+| `src/components/welcome/WelcomePage.tsx` | full rewrite of hero + plants strip + copy |
+| `src/components/welcome/RootSystem.tsx` | new SVG component |
+| `src/components/layout/AppShell.tsx` | logo + wordmark swap |
+| `src/components/theme/ThemeProvider.tsx` | storage key + migration |
+| `src/styles.css` | palette remap, keyframe renames, `rootGrow` keyframe |
+| `src/routes/__root.tsx` | meta + favicon |
+| `src/routes/_app.welcome.tsx` | meta block |
+| `src/routes/_app.about.tsx` | copy |
+| `src/routes/_app.beatmaker.tsx` | restyle + voice label rename |
+| `src/routes/_app.library.tsx` | restyle + mood label rename |
+| `src/routes/_app.assembly.tsx` | top-bar restyle + empty state |
+| `src/routes/_app.mastering.tsx` | meter + preset label restyle |
 
-### Out of scope
-
-- Buying / configuring the `pio-near.io` domain (user action, outside the codebase).
-- Visual redesign of Beatmaker / Library / Mastering / Assembly / About — they continue to inherit theme; only the wordmark/copy is renamed.
-- Replacing the existing background image at `public/osmose-bg.png` — the new Welcome page renders its own scene, so the global background sits behind other routes only.
+Old `pio-near-logo.png` is left in place untouched (no orphan deletions); imports just stop referencing it.
