@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { ChevronLeft, Play, Pause, RotateCcw, Plus, Minus, Shuffle } from "lucide-react";
+import { ChevronLeft, Play, Pause, RotateCcw, Plus, Minus, Shuffle, Magnet } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { zodValidator } from "@tanstack/zod-adapter";
@@ -195,6 +195,9 @@ function BeatmakerPage() {
   const [playing, setPlaying] = useState(false);
   const [bpm, setBpm] = useState(STYLES[0].bpm);
   const [step, setStep] = useState(0);
+  // Quantize: "off" = 1/16 (tap exact cell), "8" = snap to 1/8, "4" = snap to 1/4.
+  // The grid is always 32 × 1/16 cells; quantize only affects where a *tap* lands.
+  const [quantize, setQuantize] = useState<"off" | "8" | "4">("off");
   const ctxRef = useRef<AudioContext | null>(null);
   const timerRef = useRef<number | null>(null);
   const stepRef = useRef(0);
@@ -249,7 +252,12 @@ function BeatmakerPage() {
   }, [playing, bpm]);
 
   const toggle = (r: number, c: number) => {
-    setPattern((p) => p.map((row, ri) => (ri !== r ? row : row.map((v, ci) => (ci !== c ? v : !v)))));
+    const target = snapStep(c, quantize);
+    setPattern((p) =>
+      p.map((row, ri) =>
+        ri !== r ? row : row.map((v, ci) => (ci !== target ? v : !v)),
+      ),
+    );
   };
 
   const clear = () => setPattern(VOICES.map(() => Array(STEPS).fill(false)));
@@ -376,6 +384,32 @@ function BeatmakerPage() {
             <RotateCcw className="h-4 w-4" />
           </button>
 
+          {/* Quantize toggle — cycles off → 1/8 → 1/4 → off */}
+          <button
+            onClick={() =>
+              setQuantize((q) => (q === "off" ? "8" : q === "8" ? "4" : "off"))
+            }
+            className={cn(
+              "flex h-11 items-center gap-1.5 rounded-full border px-3 text-xs uppercase tracking-[0.18em] transition-all",
+              quantize === "off"
+                ? "border-border/60 bg-card/40 text-muted-foreground hover:border-warm-link hover:text-warm-link"
+                : "border-warm-link bg-warm-link/15 text-foreground",
+            )}
+            aria-label={`Quantize: ${quantize === "off" ? "off" : `1/${quantize}`}`}
+            title={
+              quantize === "off"
+                ? "Quantize off — taps land on any 1/16"
+                : quantize === "8"
+                ? "Quantize 1/8 — taps snap to the nearest eighth"
+                : "Quantize 1/4 — taps snap to the nearest quarter"
+            }
+          >
+            <Magnet className="h-3.5 w-3.5" />
+            <span className="font-mono">
+              {quantize === "off" ? "1/16" : `1/${quantize}`}
+            </span>
+          </button>
+
           <div className="ml-2 flex items-center gap-2">
             <button
               onClick={() => setBpm((b) => Math.max(40, b - 2))}
@@ -430,6 +464,12 @@ function BeatmakerPage() {
                   const isBeat = c % 4 === 0;
                   const isBar = c % 8 === 0;
                   const isCurrent = playing && step === c;
+                  const isSnapTarget =
+                    quantize === "off"
+                      ? true
+                      : quantize === "8"
+                      ? c % 2 === 0
+                      : c % 4 === 0;
                   return (
                     <button
                       key={c}
@@ -442,6 +482,9 @@ function BeatmakerPage() {
                         isCurrent && "ring-2 ring-warm-link/70 ring-offset-1 ring-offset-background",
                         isBeat && !on && "bg-card/50",
                         isBar && !on && "bg-card/70",
+                        // Dim non-snap cells when quantize is active, so the
+                        // user can see where their tap will actually land.
+                        !isSnapTarget && !on && "opacity-40",
                       )}
                       style={on ? { background: v.color } : undefined}
                       aria-label={`${v.name} step ${c + 1}`}
@@ -462,6 +505,20 @@ function BeatmakerPage() {
 }
 
 /* ---------------- helpers ---------------- */
+
+/**
+ * Snap a tapped 1/16 step index to the nearest grid cell for the active
+ * quantize setting. "off" returns the original index untouched.
+ * - quantize "8" snaps to even cells (0, 2, 4, …, 30) — every 1/8 note.
+ * - quantize "4" snaps to multiples of 4 (0, 4, 8, …, 28) — every 1/4 note.
+ * Result is clamped to [0, STEPS-1].
+ */
+function snapStep(step: number, quantize: "off" | "8" | "4"): number {
+  if (quantize === "off") return step;
+  const grid = quantize === "8" ? 2 : 4;
+  const snapped = Math.round(step / grid) * grid;
+  return Math.max(0, Math.min(STEPS - 1, snapped));
+}
 
 function stylePattern(s: Style, jitter = false): boolean[][] {
   return s.pattern.map((row) => {
