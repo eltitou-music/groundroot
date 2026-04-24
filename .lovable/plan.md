@@ -1,70 +1,61 @@
 
 
-## Apply the GroundRoot logo + palette, build a real Assembly workspace
+## Rebrand to Osmose — organic, cellular feel
 
-Two things: (1) bring the actual GroundRoot logo and its earthy palette (forest green, mustard yellow, terracotta orange, off-white) into the app, and (2) make `/assembly` a real Audacity-style multi-track workspace — distinct from the intro page — instead of a duplicate landing.
+Rename the app from **GroundRoot** to **Osmose**, adopt the new tagline *"transcend and share yourself to the world through music"*, and shift the visual language from "earth + sun" to a more biological/cellular aesthetic — soft membranes, fluid gradients, subtle cellular textures in the background.
 
-### 1. Logo + palette
+### 1. Brand rename
 
-**Add the logo as an asset**
-- Save the uploaded image to `src/assets/groundroot-logo.png`.
-- Replace the "G in a gradient square" mark in `AppShell.tsx` sidebar with `<img src={logo}>` at 32px. Keep the wordmark text next to it.
-- Use the same logo in the intro `_app.index.tsx` above the wordmark (small, ~120px), so the page "lands" with the brand.
-- Add it as the favicon/og-image (small change to `__root.tsx` head meta).
+**Wordmark + tagline** (across `_app.index.tsx`, `AppShell.tsx`, `__root.tsx` meta):
+- Replace every "GroundRoot" with **Osmose**.
+- New tagline (intro page, soft gray): *"transcend and share yourself to the world through music"*.
+- Page `<title>`: `Osmose — transcend and share yourself to the world through music`.
+- og:title, og:description, twitter meta updated to match.
+- localStorage theme key `groundroot-theme` → `osmose-theme` (with a one-time migration: read old key on first load if new is empty).
 
-**Retune the palette to match the logo**
-- Update `src/styles.css` so both themes pull from the logo's earthy palette instead of the current saturated yellow→red:
-  - Mustard yellow `oklch(0.84 0.16 90)`
-  - Terracotta orange `oklch(0.68 0.17 50)`
-  - Forest green `oklch(0.42 0.08 145)` (deep, like the droplet outline)
-  - Cream/off-white `oklch(0.96 0.02 85)`
-- Dark theme: deep warm-charcoal background (slightly brown-tinted, like soil), forest-green accents for borders/structure, mustard→orange radial for the brand gradient, cream text. Removes the "fire / red" feel; lands on "earth + sun".
-- Light theme: cream background, forest-green text, mustard→orange brand gradient. Keeps the optional "blue→green→violet" alt out — the logo defines the brand now.
-- `--warm-link` becomes mustard in dark, terracotta in light.
-- Soften `text-gradient-brand-radial` so it reads as a sun (yellow core → orange edge), no red.
+**Logo treatment**:
+- The existing droplet logo still works conceptually (a cell / drop of life). Keep `src/assets/groundroot-logo.png` as the file but reference it via a renamed export `osmoseLogo` in imports, OR copy to `src/assets/osmose-logo.png` and switch imports. We'll do the copy + switch so the asset name matches the brand. Old file stays untouched (no deletion needed).
 
-### 2. A real Assembly workspace at `/assembly`
+### 2. Organic / cellular visual language
 
-Today, the sidebar's "Assembly" entry points to `/` and the only real workspace lives at `/assembly/$setId` (a 3-column SourcesPanel / TransitionMap / CoPilot layout). We'll build a proper Audacity-like editor as the Assembly home, while keeping the existing set-based flow available.
+**Palette shift** (`src/styles.css`) — keep mustard/forest as anchors but lean more biological:
+- Add `--membrane`: deep teal-green `oklch(0.38 0.06 175)` — a "cellular fluid" tone.
+- Add `--bioluminescent`: soft cyan-green `oklch(0.78 0.14 165)` for accents/links hover.
+- Soften the brand radial: mustard core → warm amber → terracotta edge stays, but reduce chroma another ~10% so it reads as "glowing cell nucleus" rather than "sun".
+- Light theme: cream/off-white base gets a faint green wash (membrane tint at very low opacity) so it feels like looking through tissue.
 
-**New route: `src/routes/_app.assembly.tsx`** — the Assembly workspace. Layout:
+**Cellular background texture** (`src/styles.css`, applied to `body`):
+- Replace the current single-noise + radial highlight with a layered organic stack:
+  - Layer 1: large soft radial blobs (3–4 of them) in mustard/forest/membrane, very low opacity (~6–10%), positioned off-center, blurred via `filter: blur` on a pseudo-element OR baked into a CSS `radial-gradient` stack — gives a "cells under microscope" vibe.
+  - Layer 2: a tiny inline SVG noise/grain (already in place) kept very subtle for tactile depth.
+  - Layer 3: an inline SVG of soft circular outlines (cellular membranes) at ~3% opacity, tiled — looks like distant cell walls. Generated as a small data-URI SVG with 2–3 overlapping circles with stroke only.
+- Dark mode: deeper, like a wet biological canvas. Light mode: pale, like backlit tissue.
+- Add a CSS `@keyframes cellDrift` that very slowly translates the blob layer (e.g., 60s ease-in-out infinite alternate, ±2% translate) so the background feels alive but never distracting. Respect `prefers-reduced-motion`.
 
-```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Transport: ⏮ ▶ ⏸ ⏹  ⏺   00:00:42 / 03:14    Zoom −/+   Snap  BPM 124  │  ← top bar
-├─────────────────────────────────────────────────────────────────────────┤
-│ ┌──────────┐ ┌─────────────────────────────────────────────────────┐    │
-│ │ Track 1  │ │ ░░▓▓▓▒▒░░  ░▒▓██▓▒░  ░░▓▓▒░  (waveform)            │    │
-│ │ Vocals   │ │                                                     │    │
-│ │ M S 🎚   │ │                                                     │    │
-│ ├──────────┤ ├─────────────────────────────────────────────────────┤    │
-│ │ Track 2  │ │ ▒▒▓██▓▒░  ░░▓▓▓▒░░  ░▒▓██▓▒░                       │    │
-│ │ Drums    │ │                                                     │    │
-│ ├──────────┤ ├─────────────────────────────────────────────────────┤    │
-│ │ + Add    │ │                                                     │    │
-│ └──────────┘ └─────────────────────────────────────────────────────┘    │
-│                                                                         │
-│  Timeline ruler:  0:00     0:30     1:00     1:30     2:00     2:30     │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+**Component edges** — soften corners app-wide to feel more organic:
+- Bump `--radius` from current value to something more rounded (e.g., 0.85rem) so cards/inputs/buttons read as cellular pods rather than rectangles.
+- Inputs on the intro page get a pill shape (fully rounded) to reinforce the membrane feel.
 
-**What it includes (Phase 1, all client-side mock — no audio engine yet):**
+**Wordmark animation** (`_app.index.tsx`):
+- Add a very slow breathing animation to the **Osmose** wordmark (`scale: 1 → 1.015 → 1` over 6s, infinite) — feels like a living organism. Reduced-motion safe.
 
-- **Top transport bar**: play / pause / stop / record / skip buttons (from `lucide-react`), live playhead time display, master BPM input, zoom −/+, snap toggle. Buttons are real React state; clicking play increments the playhead with `requestAnimationFrame`.
-- **Track header column (left, ~200px wide)**: per-track name (editable inline), Mute/Solo buttons, volume slider (shadcn `Slider`), color swatch (mustard / orange / forest / cream) acting as track color.
-- **Waveform lanes**: each track is a horizontal lane. Render decorative SVG waveforms generated from a seeded random function so they look real. Clips are colored rectangles with the waveform inside; user can drag clips left/right within their lane (simple `pointerdown`/`move` math, no library) and resize from the right edge.
-- **Timeline ruler** above lanes with tick marks every second; a vertical playhead line spans all lanes and animates during playback.
-- **Add track** button appends a new lane; default 4 starter tracks (Vocals, Drums, Bass, FX) so the page is not empty on first load.
-- **State** lives in component `useState` for now (tracks, clips, playhead, BPM). No DB writes — this is a sandbox/editor surface; the existing `/assembly/$setId` set-builder remains for the Spotify-driven flow.
-- **Empty-state CTA** in the corner: "Got a setlist? Build it in the Set Studio →" linking to `/` so the two flows stay connected.
+### 3. Build error fix (incidental, required)
 
-**Sidebar update (`AppShell.tsx`)**: Assembly nav item now points to `/assembly` (not `/`). Order stays Beatmaker · Library · Mastering · Assembly · About.
+The current build fails because `src/routes/_app.index.tsx` uses `<Link to="/assembly">` but the route file `_app.assembly.tsx` isn't registered yet in `routeTree.gen.ts` (only `_app.assembly.$setId.tsx` is). The route tree is auto-generated by the TanStack plugin on dev/build, so triggering a build with the file present regenerates it — but the staged regeneration in the previous turn missed the bare `/assembly` index. Fix by ensuring `src/routes/_app.assembly.tsx` exists with a valid `createFileRoute("/assembly")` export so the next build regenerates the tree and the `<Link to="/assembly">` typecheck passes. (The file was created last turn; we'll verify and, if the generated tree is stale, force a regeneration by touching the file with a no-op edit during this implementation pass.)
 
-**Intro page (`_app.index.tsx`)**: the "Assembly" link in the destination row stops triggering set creation — it just navigates to `/assembly`. The intention input still creates a set and routes to `/assembly/$setId` (the set-studio flow). That keeps the intention-driven path intact while giving the Assembly tab its own, rich destination.
+### 4. Files touched
+
+- `src/styles.css` — palette tweaks, cellular background layers, radius bump, breathing keyframes.
+- `src/routes/_app.index.tsx` — wordmark text + tagline + breathing animation + pill input.
+- `src/routes/__root.tsx` — title/description/og meta.
+- `src/components/layout/AppShell.tsx` — sidebar wordmark text "Osmose".
+- `src/components/theme/ThemeProvider.tsx` — storage key rename + migration.
+- `src/assets/osmose-logo.png` — copy of current droplet logo under new name; update imports in `AppShell.tsx`, `_app.index.tsx`, `__root.tsx`.
+- Verify `src/routes/_app.assembly.tsx` exists so the route tree regenerates and the build error clears.
 
 ### Out of scope
 
-- Real audio playback / WebAudio engine (Phase 2). Phase 1 is the visual editor + interaction model.
-- Persisting Assembly state to the database.
-- Changes to Beatmaker / Library / Mastering / About visuals beyond inheriting the new palette.
+- New logo artwork (we keep the droplet — it already reads as a cell/drop of life and fits the new brand).
+- Content rewrites on Beatmaker / Library / Mastering / About pages beyond inheriting the new background and palette.
+- Audio engine work on Assembly.
 
