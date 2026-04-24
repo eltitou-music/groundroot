@@ -3,7 +3,7 @@ import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/r
 import appCss from "../styles.css?url";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
-import logoUrl from "@/assets/groundroot-logo.png";
+import logoUrl from "@/assets/osmose-logo.png";
 
 function NotFoundComponent() {
   return (
@@ -32,17 +32,17 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "GroundRoot — a tool to transcend through music" },
+      { title: "Osmose — transcend and share yourself to the world through music" },
       {
         name: "description",
         content:
-          "GroundRoot is a calm, AI-assisted studio to sequence, shape, and master sets with intention.",
+          "Osmose — transcend and share yourself to the world through music. A calm, AI-assisted studio to sequence, shape, and master sets with intention.",
       },
-      { name: "author", content: "GroundRoot" },
-      { property: "og:title", content: "GroundRoot — a tool to transcend through music" },
+      { name: "author", content: "Osmose" },
+      { property: "og:title", content: "Osmose — transcend and share yourself to the world through music" },
       {
         property: "og:description",
-        content: "Sequence, shape, master. A calm studio for building sets with intention.",
+        content: "Transcend and share yourself to the world through music. Sequence, shape, master.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

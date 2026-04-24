@@ -5,7 +5,7 @@ import { ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import logo from "@/assets/groundroot-logo.png";
+import logo from "@/assets/osmose-logo.png";
 
 export const Route = createFileRoute("/_app/")({
   component: IntroPage,
@@ -81,20 +81,20 @@ function IntroPage() {
       <div className="mx-auto flex w-full max-w-[720px] flex-col items-center text-center">
         <motion.img
           src={logo}
-          alt="GroundRoot"
+          alt="Osmose"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1, ease: "easeOut" }}
-          className="mb-8 h-24 w-24 object-contain md:h-28 md:w-28"
+          className="osmose-breath mb-8 h-24 w-24 object-contain md:h-28 md:w-28"
         />
         <motion.h1
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, ease: "easeOut" }}
-          className="font-display font-medium leading-[0.95] tracking-tight text-gradient-brand-radial"
+          className="osmose-breath font-display font-medium leading-[0.95] tracking-tight text-gradient-brand-radial"
           style={{ fontSize: "clamp(64px, 11vw, 140px)" }}
         >
-          GroundRoot
+          Osmose
         </motion.h1>
 
         <motion.p
@@ -103,7 +103,7 @@ function IntroPage() {
           transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           className="mt-6 text-base text-muted-foreground/80 md:text-lg"
         >
-          a tool to transcend through music — sequence, shape, master
+          transcend and share yourself to the world through music
         </motion.p>
 
         <motion.div
@@ -112,7 +112,7 @@ function IntroPage() {
           transition={{ duration: 0.8, delay: 0.45, ease: "easeOut" }}
           className="mt-16 w-full max-w-xl"
         >
-          <div className="group relative">
+          <div className="group relative rounded-full border border-border/50 bg-card/30 px-6 py-1 backdrop-blur-sm transition-colors focus-within:border-warm-link">
             <input
               type="text"
               value={intention}
@@ -121,12 +121,10 @@ function IntroPage() {
               placeholder="What's today's intention?"
               autoFocus
               className={cn(
-                "w-full bg-transparent pb-3 pr-10 text-center text-lg text-foreground",
+                "w-full bg-transparent py-3 pr-10 text-center text-lg text-foreground",
                 "placeholder:text-muted-foreground/50",
-                "border-0 border-b border-border/50 focus:border-warm-link focus:outline-none",
-                "transition-colors",
+                "border-0 focus:outline-none",
               )}
-              style={{ borderBottomColor: "var(--warm-link)" }}
             />
             <button
               type="button"
@@ -134,7 +132,7 @@ function IntroPage() {
               disabled={saving}
               aria-label="Begin"
               className={cn(
-                "absolute right-0 bottom-3 flex h-8 w-8 items-center justify-center rounded-full",
+                "absolute right-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full",
                 "text-muted-foreground/60 transition-all",
                 "hover:text-warm-link hover:scale-110",
                 "disabled:opacity-40",
