@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, type PointerEvent } from "react";
 import {
   Play,
   Pause,
@@ -12,11 +12,16 @@ import {
   ZoomOut,
   Magnet,
   ArrowRight,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { zodValidator } from "@tanstack/zod-adapter";
 import { intentionSearchSchema } from "@/utils/intention";
+import { ensureUserId, findTodaySet } from "@/utils/today-set";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/assembly")({
   validateSearch: zodValidator(intentionSearchSchema),
@@ -135,44 +140,306 @@ const initialTracks: Track[] = [
   },
 ];
 
+/* ---------------- Real audio engine ---------------- */
+
+type LoadedClip = {
+  id: string;
+  title: string;
+  buffer: AudioBuffer;
+  start: number;   // timeline start (s)
+  duration: number;
+};
+
+const CROSSFADE = 2; // seconds, matches the master render
+
+/**
+ * Loads today's set tracks, decodes them, lays them out end-to-end with
+ * a 2s crossfade overlap, and exposes play / pause / stop / seek that
+ * actually drive a Web Audio graph synchronized to the visual playhead.
+ */
+function useSetAudioEngine(playhead: number, setPlayhead: (n: number) => void) {
+  const ctxRef = useRef<AudioContext | null>(null);
+  const masterGainRef = useRef<GainNode | null>(null);
+  const liveSourcesRef = useRef<AudioBufferSourceNode[]>([]);
+  const rafRef = useRef<number | null>(null);
+  const startedAtCtxRef = useRef<number>(0);   // ctx.currentTime at last play()
+  const startedAtHeadRef = useRef<number>(0);  // playhead at last play()
+  const [clips, setClips] = useState<LoadedClip[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [muted, setMuted] = useState(false);
+  const [playing, setPlaying] = useState(false);
+
+  const totalDuration = useMemo(() => {
+    if (clips.length === 0) return 0;
+    const last = clips[clips.length - 1];
+    return last.start + last.duration;
+  }, [clips]);
+
+  // Load + decode tracks for today's set. Runs once on mount.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        const uid = await ensureUserId();
+        const today = await findTodaySet(uid);
+        if (!today) {
+          setLoading(false);
+          return;
+        }
+        const { data, error } = await supabase
+          .from("tracks")
+          .select("id, title, upload_url, position")
+          .eq("set_id", today.id)
+          .order("position", { ascending: true });
+        if (error) throw error;
+        const playable = (data ?? []).filter((t) => !!t.upload_url);
+        if (playable.length === 0) {
+          setLoading(false);
+          return;
+        }
+        const Ctx: typeof AudioContext =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext })
+            .webkitAudioContext;
+        const tmp = new Ctx();
+        const decoded: LoadedClip[] = [];
+        let cursor = 0;
+        for (const t of playable) {
+          try {
+            const resp = await fetch(t.upload_url as string);
+            if (!resp.ok) continue;
+            const arr = await resp.arrayBuffer();
+            const buf = await tmp.decodeAudioData(arr);
+            decoded.push({
+              id: t.id,
+              title: t.title,
+              buffer: buf,
+              start: cursor,
+              duration: buf.duration,
+            });
+            const advance =
+              decoded.length === playable.length
+                ? buf.duration
+                : Math.max(0.5, buf.duration - CROSSFADE);
+            cursor += advance;
+          } catch (e) {
+            console.warn("[assembly] couldn't decode", t.title, e);
+          }
+        }
+        await tmp.close().catch(() => undefined);
+        if (cancelled) return;
+        setClips(decoded);
+        setLoading(false);
+      } catch (e) {
+        if (cancelled) return;
+        setLoadErr(e instanceof Error ? e.message : String(e));
+        setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Build / lazily resume the audio context. Must be called from a user
+  // gesture (browsers block AudioContext creation otherwise).
+  const ensureCtx = useCallback(async () => {
+    if (!ctxRef.current) {
+      const Ctx: typeof AudioContext =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext;
+      const ctx = new Ctx();
+      const g = ctx.createGain();
+      g.gain.value = muted ? 0 : 1;
+      g.connect(ctx.destination);
+      ctxRef.current = ctx;
+      masterGainRef.current = g;
+    }
+    if (ctxRef.current.state === "suspended") {
+      await ctxRef.current.resume();
+    }
+    return ctxRef.current;
+  }, [muted]);
+
+  const stopAllSources = useCallback(() => {
+    for (const s of liveSourcesRef.current) {
+      try {
+        s.stop();
+      } catch {
+        /* already stopped */
+      }
+      s.disconnect();
+    }
+    liveSourcesRef.current = [];
+  }, []);
+
+  // Schedule clips on the bus starting at the given playhead offset.
+  const scheduleFrom = useCallback(
+    (fromHead: number) => {
+      const ctx = ctxRef.current;
+      const bus = masterGainRef.current;
+      if (!ctx || !bus) return;
+      stopAllSources();
+      const now = ctx.currentTime + 0.05;
+      startedAtCtxRef.current = now;
+      startedAtHeadRef.current = fromHead;
+
+      for (const clip of clips) {
+        const clipEnd = clip.start + clip.duration;
+        if (clipEnd <= fromHead) continue;
+        const skipInto = Math.max(0, fromHead - clip.start);
+        const startAt = now + Math.max(0, clip.start - fromHead);
+        const playDur = clip.duration - skipInto;
+
+        const src = ctx.createBufferSource();
+        src.buffer = clip.buffer;
+        const g = ctx.createGain();
+
+        const isFirst = clip === clips[0];
+        const isLast = clip === clips[clips.length - 1];
+        const fadeIn = !isFirst && skipInto < CROSSFADE ? CROSSFADE - skipInto : 0;
+        const fadeOut = !isLast ? CROSSFADE : 0;
+
+        g.gain.setValueAtTime(fadeIn > 0 ? 0.0001 : 1, startAt);
+        if (fadeIn > 0) g.gain.exponentialRampToValueAtTime(1, startAt + fadeIn);
+        if (fadeOut > 0 && playDur > fadeOut) {
+          const fOutStart = startAt + (playDur - fadeOut);
+          g.gain.setValueAtTime(1, fOutStart);
+          g.gain.exponentialRampToValueAtTime(0.0001, startAt + playDur);
+        }
+        src.connect(g).connect(bus);
+        src.start(startAt, skipInto);
+        src.stop(startAt + playDur + 0.05);
+        liveSourcesRef.current.push(src);
+      }
+    },
+    [clips, stopAllSources],
+  );
+
+  const play = useCallback(async () => {
+    if (clips.length === 0) {
+      // No real audio yet → just toggle visual playhead.
+      setPlaying(true);
+      return;
+    }
+    await ensureCtx();
+    const fromHead = playhead >= totalDuration ? 0 : playhead;
+    if (fromHead !== playhead) setPlayhead(fromHead);
+    scheduleFrom(fromHead);
+    setPlaying(true);
+  }, [clips.length, ensureCtx, playhead, scheduleFrom, setPlayhead, totalDuration]);
+
+  const pause = useCallback(() => {
+    stopAllSources();
+    setPlaying(false);
+  }, [stopAllSources]);
+
+  const stop = useCallback(() => {
+    stopAllSources();
+    setPlaying(false);
+    setPlayhead(0);
+  }, [setPlayhead, stopAllSources]);
+
+  const seek = useCallback(
+    (t: number) => {
+      setPlayhead(t);
+      if (playing && clips.length > 0) {
+        scheduleFrom(t);
+      }
+    },
+    [clips.length, playing, scheduleFrom, setPlayhead],
+  );
+
+  // Drive the visual playhead from the audio clock while playing.
+  useEffect(() => {
+    if (!playing) {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      return;
+    }
+    const ctx = ctxRef.current;
+    const tick = () => {
+      if (ctx && clips.length > 0) {
+        const elapsed = ctx.currentTime - startedAtCtxRef.current;
+        const head = Math.max(0, startedAtHeadRef.current + elapsed);
+        const cap = totalDuration > 0 ? totalDuration : TOTAL_SECONDS;
+        if (head >= cap) {
+          stopAllSources();
+          setPlaying(false);
+          setPlayhead(cap);
+          return;
+        }
+        setPlayhead(head);
+      } else {
+        // Fallback visual-only tick at ~60fps (no audio loaded)
+        setPlayhead(
+          Math.min(TOTAL_SECONDS, (startedAtHeadRef.current += 1 / 60)),
+        );
+        if (startedAtHeadRef.current >= TOTAL_SECONDS) {
+          setPlaying(false);
+          return;
+        }
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    if (clips.length === 0) {
+      // Seed the visual cursor from current playhead
+      startedAtHeadRef.current = playhead;
+    }
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, clips.length, totalDuration]);
+
+  // Mute toggle
+  useEffect(() => {
+    if (masterGainRef.current) {
+      masterGainRef.current.gain.value = muted ? 0 : 1;
+    }
+  }, [muted]);
+
+  // Tear down on unmount
+  useEffect(() => {
+    return () => {
+      stopAllSources();
+      ctxRef.current?.close().catch(() => undefined);
+    };
+  }, [stopAllSources]);
+
+  return {
+    play,
+    pause,
+    stop,
+    seek,
+    playing,
+    muted,
+    toggleMute: () => setMuted((m) => !m),
+    loading,
+    loadErr,
+    hasAudio: clips.length > 0,
+    audioDuration: totalDuration,
+  };
+}
+
 function AssemblyWorkspace() {
   const [tracks, setTracks] = useState<Track[]>(initialTracks);
-  const [playing, setPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(0);
   const [bpm, setBpm] = useState(124);
   const [pxPerSec, setPxPerSec] = useState(14);
   const [snap, setSnap] = useState(true);
   const lanesScrollRef = useRef<HTMLDivElement>(null);
-  const rafRef = useRef<number | null>(null);
-  const lastTsRef = useRef<number | null>(null);
 
-  // Playhead animation
+  const engine = useSetAudioEngine(playhead, setPlayhead);
+
+  // Surface load errors once.
   useEffect(() => {
-    if (!playing) {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-      lastTsRef.current = null;
-      return;
-    }
-    const tick = (ts: number) => {
-      if (lastTsRef.current == null) lastTsRef.current = ts;
-      const dt = (ts - lastTsRef.current) / 1000;
-      lastTsRef.current = ts;
-      setPlayhead((p) => {
-        const next = p + dt;
-        if (next >= TOTAL_SECONDS) {
-          setPlaying(false);
-          return TOTAL_SECONDS;
-        }
-        return next;
-      });
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [playing]);
+    if (engine.loadErr) toast.error(`Audio: ${engine.loadErr}`);
+  }, [engine.loadErr]);
 
   const totalWidth = TOTAL_SECONDS * pxPerSec;
 
@@ -216,22 +483,20 @@ function AssemblyWorkspace() {
     const lane = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - lane.left + (lanesScrollRef.current?.scrollLeft ?? 0);
     const t = Math.max(0, Math.min(TOTAL_SECONDS, x / pxPerSec));
-    setPlayhead(t);
+    engine.seek(t);
   };
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col">
       {/* Top transport bar */}
       <TransportBar
-        playing={playing}
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onStop={() => {
-          setPlaying(false);
-          setPlayhead(0);
-        }}
-        onSkipBack={() => setPlayhead(0)}
-        onSkipForward={() => setPlayhead(TOTAL_SECONDS)}
+        playing={engine.playing}
+        onPlayToggle={() => (engine.playing ? engine.pause() : engine.play())}
+        onStop={engine.stop}
+        onSkipBack={() => engine.seek(0)}
+        onSkipForward={() =>
+          engine.seek(engine.audioDuration > 0 ? engine.audioDuration : TOTAL_SECONDS)
+        }
         playhead={playhead}
         bpm={bpm}
         setBpm={setBpm}
@@ -239,6 +504,10 @@ function AssemblyWorkspace() {
         setPxPerSec={setPxPerSec}
         snap={snap}
         setSnap={setSnap}
+        muted={engine.muted}
+        onToggleMute={engine.toggleMute}
+        hasAudio={engine.hasAudio}
+        loading={engine.loading}
       />
 
       {/* Main editor area */}
@@ -316,8 +585,7 @@ function AssemblyWorkspace() {
 
 function TransportBar(props: {
   playing: boolean;
-  onPlay: () => void;
-  onPause: () => void;
+  onPlayToggle: () => void;
   onStop: () => void;
   onSkipBack: () => void;
   onSkipForward: () => void;
@@ -328,11 +596,14 @@ function TransportBar(props: {
   setPxPerSec: (v: number) => void;
   snap: boolean;
   setSnap: (v: boolean) => void;
+  muted: boolean;
+  onToggleMute: () => void;
+  hasAudio: boolean;
+  loading: boolean;
 }) {
   const {
     playing,
-    onPlay,
-    onPause,
+    onPlayToggle,
     onStop,
     onSkipBack,
     onSkipForward,
@@ -343,6 +614,10 @@ function TransportBar(props: {
     setPxPerSec,
     snap,
     setSnap,
+    muted,
+    onToggleMute,
+    hasAudio,
+    loading,
   } = props;
 
   const Btn = ({
@@ -379,15 +654,13 @@ function TransportBar(props: {
         <Btn label="Skip to start" onClick={onSkipBack}>
           <SkipBack className="h-4 w-4" />
         </Btn>
-        {playing ? (
-          <Btn label="Pause" onClick={onPause} active>
-            <Pause className="h-4 w-4" />
-          </Btn>
-        ) : (
-          <Btn label="Play" onClick={onPlay}>
-            <Play className="h-4 w-4" />
-          </Btn>
-        )}
+        <Btn
+          label={playing ? "Pause" : "Play"}
+          onClick={onPlayToggle}
+          active={playing}
+        >
+          {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+        </Btn>
         <Btn label="Stop" onClick={onStop}>
           <Square className="h-4 w-4" />
         </Btn>
@@ -397,12 +670,27 @@ function TransportBar(props: {
         <Btn label="Record" onClick={() => {}} danger>
           <Circle className="h-4 w-4" />
         </Btn>
+        <Btn
+          label={muted ? "Unmute" : "Mute"}
+          onClick={onToggleMute}
+          active={muted}
+        >
+          {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        </Btn>
       </div>
 
       <div className="ml-2 flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 font-mono text-sm tabular-nums">
         <span className="text-primary">{fmtTime(playhead)}</span>
         <span className="text-muted-foreground/50">/</span>
         <span className="text-muted-foreground">{fmtTime(TOTAL_SECONDS)}</span>
+      </div>
+
+      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+        {loading
+          ? "Loading audio…"
+          : hasAudio
+            ? "Live audio"
+            : "Visual only — add tracks to your set to hear playback"}
       </div>
 
       <div className="ml-auto flex items-center gap-4">
