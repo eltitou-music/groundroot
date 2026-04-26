@@ -401,16 +401,19 @@ function EffectChip({
   label,
   value,
   children,
+  id,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   children: React.ReactNode;
+  id?: string;
 }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button
+          id={id}
           className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/40 px-3 py-1.5 text-xs text-foreground transition-all hover:border-warm-link/60"
           title={`${label} · ${value}`}
         >
