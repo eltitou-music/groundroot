@@ -323,20 +323,22 @@ export function WelcomePage() {
               value={intention}
               onChange={(e) => setIntention(e.target.value)}
               onKeyDown={onKeyDown}
+              disabled={stage === "reflecting"}
               placeholder="What do you want to say? (e.g. a slow morning for E.)"
               autoFocus
               className={cn(
                 "w-full bg-transparent py-3 pr-10 text-base text-foreground",
                 "placeholder:text-muted-foreground/50",
                 "border-0 focus:outline-none",
+                "disabled:opacity-60",
               )}
             />
             <button
               type="button"
-              onClick={() => handleCommitToSet()}
-              disabled={saving}
-              aria-label="Plant a set with this intention"
-              title="Plant a set"
+              onClick={() => void submitIntention()}
+              disabled={stage === "reflecting" || !intention.trim()}
+              aria-label="Share this intention"
+              title="Share this intention"
               className={cn(
                 "absolute right-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full",
                 "text-muted-foreground/60 transition-all",
@@ -344,7 +346,11 @@ export function WelcomePage() {
                 "disabled:opacity-40",
               )}
             >
-              <Sprout className="h-4 w-4" />
+              {stage === "reflecting" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sprout className="h-4 w-4" />
+              )}
             </button>
           </div>
 
@@ -356,10 +362,12 @@ export function WelcomePage() {
               onChange={(e) => setDedicatedTo(e.target.value)}
               placeholder="for… (optional)"
               maxLength={120}
+              disabled={stage === "reflecting"}
               className={cn(
                 "w-full border-0 border-b border-transparent bg-transparent py-1.5 text-sm italic text-foreground/80",
                 "placeholder:italic placeholder:text-muted-foreground/45",
                 "focus:border-warm-link/40 focus:outline-none",
+                "disabled:opacity-60",
               )}
             />
           </div>
@@ -376,14 +384,112 @@ export function WelcomePage() {
             </p>
           )}
 
+          {/* === The conversation panel === */}
+          <AnimatePresence>
+            {(stage === "reply" || stage === "routing" || (stage === "reflecting" && reflection)) && (
+              <motion.div
+                key="coach-panel"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                className="mt-6 rounded-2xl border border-warm-link/30 bg-card/70 p-5 text-left backdrop-blur-sm"
+              >
+                <p className="font-display text-sm italic leading-relaxed text-foreground/85">
+                  {reflection}
+                </p>
+
+                {/* Pillar chips */}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {pillarChips.map((c) => (
+                    <button
+                      key={c.pillar}
+                      type="button"
+                      onClick={() => chooseChip(c.pillar)}
+                      disabled={saving || stage === "routing"}
+                      title={c.hint}
+                      className={cn(
+                        "inline-flex flex-col items-start gap-0.5 rounded-xl border border-border/60 bg-background/40 px-3 py-2 text-left transition-all",
+                        "hover:border-warm-link hover:bg-warm-link/10",
+                        "disabled:cursor-not-allowed disabled:opacity-40",
+                      )}
+                    >
+                      <span className="text-sm text-foreground">{c.label}</span>
+                      <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70">
+                        {c.hint}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Free-text reply */}
+                <div className="mt-4 flex items-center gap-2">
+                  <input
+                    ref={replyInputRef}
+                    type="text"
+                    value={reply}
+                    onChange={(e) => setReply(e.target.value)}
+                    onKeyDown={onReplyKeyDown}
+                    disabled={stage === "routing"}
+                    placeholder="…or say it your own way"
+                    maxLength={500}
+                    className={cn(
+                      "flex-1 rounded-full border border-border/60 bg-background/60 px-4 py-2 text-sm text-foreground",
+                      "placeholder:italic placeholder:text-muted-foreground/50",
+                      "focus:border-warm-link focus:outline-none",
+                      "disabled:opacity-60",
+                    )}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void submitReply()}
+                    disabled={stage === "routing" || !reply.trim()}
+                    aria-label="Send reply"
+                    className={cn(
+                      "flex h-9 w-9 items-center justify-center rounded-full bg-warm-link/15 text-warm-link transition-all",
+                      "hover:bg-warm-link/25",
+                      "disabled:opacity-40",
+                    )}
+                  >
+                    {stage === "routing" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ArrowRight className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+
+                {routeError && (
+                  <p className="mt-2 text-[11px] italic text-destructive/80">
+                    {routeError}
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStage("intent");
+                    setReflection("");
+                    setReply("");
+                    setRouteError(null);
+                  }}
+                  className="mt-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 hover:text-foreground"
+                >
+                  ← Edit intention
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* One-tap intention templates */}
+          {stage === "intent" && (
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
             {intentionTemplates.map((tpl) => (
               <button
                 key={tpl.label}
                 type="button"
                 onClick={() => handleTemplate(tpl)}
-                disabled={saving}
+                disabled={stage !== "intent"}
                 title={tpl.intention}
                 className={cn(
                   "group inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/50 px-3 py-1.5",
@@ -397,10 +503,13 @@ export function WelcomePage() {
               </button>
             ))}
           </div>
+          )}
 
-          <p className="mt-3 text-[11px] italic text-muted-foreground/60">
-            Press the seedling to plant a set — or pick a pillar below to just play.
-          </p>
+          {stage === "intent" && (
+            <p className="mt-3 text-[11px] italic text-muted-foreground/60">
+              Press the seedling to share — the coach will help you find where to start.
+            </p>
+          )}
         </motion.div>
 
         <motion.div
