@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useNavigate, Link } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { HelpCircle, Sprout, BookHeart, Loader2, ArrowRight, Sparkles } from "lucide-react";
+import { HelpCircle, Sprout, BookHeart, Loader2, ArrowRight, Sparkles, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -66,6 +66,12 @@ export function WelcomePage() {
   const [routing, setRouting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Resume state — when we find a saved conversation on this set
+  const [resumed, setResumed] = useState(false);
+  const [lastPillar, setLastPillar] = useState<Pillar | null>(null);
+  const [lastSection, setLastSection] = useState<string | null>(null);
+  const [showResumeBanner, setShowResumeBanner] = useState(false);
+
   const replyInputRef = useRef<HTMLInputElement | null>(null);
   const threadEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -74,7 +80,7 @@ export function WelcomePage() {
   const lastIsAssistantQuestion =
     lastMsg?.role === "assistant" && !lastMsg.isFinal;
 
-  // Resume today's set on mount
+  // Resume today's set + coach conversation on mount
   useEffect(() => {
     let cancelled = false;
     supabase.auth.getSession().then(async ({ data }) => {
@@ -87,6 +93,26 @@ export function WelcomePage() {
         setTodaySetId(today.id);
         if (today.intention) setIntention(today.intention);
         if (today.dedicated_to) setDedicatedTo(today.dedicated_to);
+
+        // Pull the saved coach_state, if any
+        const { data: stateRow } = await supabase
+          .from("sets")
+          .select("coach_state")
+          .eq("id", today.id)
+          .maybeSingle();
+        if (cancelled) return;
+        const cs = (stateRow?.coach_state ?? null) as {
+          messages?: ChatMsg[];
+          lastPillar?: Pillar | null;
+          lastSection?: string | null;
+        } | null;
+        if (cs && Array.isArray(cs.messages) && cs.messages.length > 0) {
+          setMessages(cs.messages);
+          setLastPillar(cs.lastPillar ?? null);
+          setLastSection(cs.lastSection ?? null);
+          setResumed(true);
+          setShowResumeBanner(true);
+        }
       } catch { /* ignore */ }
     });
     return () => { cancelled = true; };
@@ -96,6 +122,30 @@ export function WelcomePage() {
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages.length, pending]);
+
+  /* ----- Persist conversation to sets.coach_state ----- */
+  const persistCoachState = async (
+    nextMessages: ChatMsg[],
+    pillar: Pillar | null,
+    section: string | null,
+  ) => {
+    if (!todaySetId) return;
+    try {
+      await supabase
+        .from("sets")
+        .update({
+          coach_state: {
+            messages: nextMessages,
+            lastPillar: pillar,
+            lastSection: section,
+            updatedAt: new Date().toISOString(),
+          },
+        })
+        .eq("id", todaySetId);
+    } catch (e) {
+      console.warn("[welcome] persist coach state failed", e);
+    }
+  };
 
   /* ----- Persist + navigate to a pillar with focus ----- */
   const persistAndGo = async (pillar: Pillar, section?: string) => {
@@ -115,6 +165,22 @@ export function WelcomePage() {
           .eq("id", today.id);
       }
       setTodaySetId(today.id);
+
+      // Remember where we sent them, so a future visit can resume.
+      const sectionVal = section ?? null;
+      setLastPillar(pillar);
+      setLastSection(sectionVal);
+      await supabase
+        .from("sets")
+        .update({
+          coach_state: {
+            messages,
+            lastPillar: pillar,
+            lastSection: sectionVal,
+            updatedAt: new Date().toISOString(),
+          },
+        })
+        .eq("id", today.id);
 
       const search: { intention?: string; dedicatedTo?: string; focus?: string } = {};
       if (finalIntention) search.intention = finalIntention;
@@ -154,6 +220,9 @@ export function WelcomePage() {
           dedicatedTo: dedicatedTo.trim(),
           history: history.map((m) => ({ role: m.role, content: m.content })),
           turn,
+          resumed,
+          lastPillar,
+          lastSection,
         },
       },
     );
@@ -178,6 +247,7 @@ export function WelcomePage() {
     }
 
     setMessages(nextHistory);
+    setShowResumeBanner(false);
     setReply("");
     setPending(true);
     setError(null);
@@ -190,7 +260,9 @@ export function WelcomePage() {
           content: out.message,
           chips: out.chips,
         };
-        setMessages((prev) => [...prev, assistantMsg]);
+        const updated = [...nextHistory, assistantMsg];
+        setMessages(updated);
+        void persistCoachState(updated, lastPillar, lastSection);
         setPending(false);
         setTimeout(() => replyInputRef.current?.focus(), 200);
       } else {
@@ -201,7 +273,9 @@ export function WelcomePage() {
           pillar: out.pillar,
           section: out.section,
         };
-        setMessages((prev) => [...prev, assistantMsg]);
+        const updated = [...nextHistory, assistantMsg];
+        setMessages(updated);
+        void persistCoachState(updated, out.pillar, out.section);
         setPending(false);
         // Brief pause so the user reads the send-off, then route.
         setTimeout(() => persistAndGo(out.pillar, out.section), 1100);
@@ -235,11 +309,31 @@ export function WelcomePage() {
     });
   };
 
-  const restart = () => {
+  const restart = async () => {
     setMessages([]);
     setReply("");
     setError(null);
     setPending(false);
+    setResumed(false);
+    setLastPillar(null);
+    setLastSection(null);
+    setShowResumeBanner(false);
+    if (todaySetId) {
+      await supabase
+        .from("sets")
+        .update({ coach_state: {} })
+        .eq("id", todaySetId);
+    }
+  };
+
+  const continueWhereLeftOff = () => {
+    if (!lastPillar) return;
+    void persistAndGo(lastPillar, lastSection ?? undefined);
+  };
+
+  const keepTalking = () => {
+    setShowResumeBanner(false);
+    setTimeout(() => replyInputRef.current?.focus(), 100);
   };
 
   const onIntentionKey = (e: KeyboardEvent<HTMLInputElement>) => {
