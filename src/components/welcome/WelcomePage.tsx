@@ -1,7 +1,7 @@
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useNavigate, Link } from "@tanstack/react-router";
-import { motion } from "framer-motion";
-import { HelpCircle, Sprout, BookHeart } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { HelpCircle, Sprout, BookHeart, Loader2, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,15 @@ const destinations: Destination[] = [
   { label: "Library", hint: "find sounds", to: "/library" },
   { label: "Assembly", hint: "build a set", to: "/assembly" },
   { label: "Mastery", hint: "polish the finish", to: "/mastering" },
+];
+
+type Pillar = "beatmaker" | "library" | "assembly" | "mastering";
+
+const pillarChips: { pillar: Pillar; label: string; hint: string; to: Destination["to"] }[] = [
+  { pillar: "beatmaker", label: "Tap a beat", hint: "start with a pulse", to: "/beatmaker" },
+  { pillar: "library", label: "Find a song", hint: "go searching", to: "/library" },
+  { pillar: "assembly", label: "Arrange what I have", hint: "build the flow", to: "/assembly" },
+  { pillar: "mastering", label: "Polish a master", hint: "render & share", to: "/mastering" },
 ];
 
 type IntentionTemplate = {
@@ -44,6 +53,14 @@ export function WelcomePage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [todaySetId, setTodaySetId] = useState<string | null>(null);
 
+  // Conversation state
+  type Stage = "intent" | "reflecting" | "reply" | "routing";
+  const [stage, setStage] = useState<Stage>("intent");
+  const [reflection, setReflection] = useState<string>("");
+  const [reply, setReply] = useState<string>("");
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const replyInputRef = useRef<HTMLInputElement | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     supabase.auth.getSession().then(async ({ data }) => {
@@ -64,17 +81,47 @@ export function WelcomePage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Commit path: user explicitly wants a setlist. Creates session + sets row.
-  const handleCommitToSet = async (overrideIntention?: string) => {
+  // Step 1 → call AI to reflect on the intention, advance to "reply" stage.
+  const submitIntention = async (overrideIntention?: string) => {
+    const finalIntention = (overrideIntention ?? intention).trim();
+    if (!finalIntention || stage === "reflecting") return;
+    setIntention(finalIntention);
+    setStage("reflecting");
+    setReflection("");
+    try {
+      const { data, error } = await supabase.functions.invoke("welcome-coach", {
+        body: {
+          action: "reflect",
+          intention: finalIntention,
+          dedicatedTo: dedicatedTo.trim(),
+        },
+      });
+      if (error) throw error;
+      const text = (data?.reflection as string | undefined)?.trim();
+      setReflection(
+        text ||
+          "What a tender wish. Where do you want to begin — a beat, a song, an arrangement, or a polish?",
+      );
+      setStage("reply");
+      // Focus the reply input shortly after it mounts
+      setTimeout(() => replyInputRef.current?.focus(), 150);
+    } catch (e) {
+      console.error("[welcome] reflect failed", e);
+      const msg = e instanceof Error ? e.message : "Couldn't reach the coach.";
+      toast.error(msg);
+      setStage("intent");
+    }
+  };
+
+  // Persist the set, then navigate to the chosen pillar.
+  const persistAndGo = async (pillar: Pillar) => {
     if (saving) return;
     setSaving(true);
     try {
       const uid = await ensureUserId();
       setUserId(uid);
-      const finalIntention = (overrideIntention ?? intention).trim();
+      const finalIntention = intention.trim();
       const today = await getOrCreateTodaySet(uid, finalIntention, dedicatedTo);
-      // If we resumed an existing set but the user has typed a fresh intention,
-      // update the row so the dedication thread stays current.
       if (!today.isFresh && (finalIntention || dedicatedTo.trim())) {
         await supabase
           .from("sets")
@@ -85,7 +132,19 @@ export function WelcomePage() {
           .eq("id", today.id);
       }
       setTodaySetId(today.id);
-      navigate({ to: "/assembly/$setId", params: { setId: today.id } });
+
+      const search: { intention?: string; dedicatedTo?: string } = {};
+      if (finalIntention) search.intention = finalIntention;
+      if (dedicatedTo.trim()) search.dedicatedTo = dedicatedTo.trim();
+
+      if (pillar === "assembly") {
+        navigate({ to: "/assembly/$setId", params: { setId: today.id } });
+      } else {
+        navigate({
+          to: pillar === "beatmaker" ? "/beatmaker" : pillar === "library" ? "/library" : "/mastering",
+          search: Object.keys(search).length > 0 ? search : undefined,
+        });
+      }
     } catch (e) {
       console.error(e);
       toast.error("Couldn't start your set. Please try again.");
@@ -94,10 +153,40 @@ export function WelcomePage() {
     }
   };
 
-  // Fork path: user picked a pillar. Carry the intention as a query param.
-  // No DB write, no session — pure routing.
-  const goToPillar = (to: Destination["to"], overrideIntention?: string) => {
-    const finalIntention = (overrideIntention ?? intention).trim();
+  // Step 2 (chip path): user tapped a pillar chip directly.
+  const chooseChip = (pillar: Pillar) => {
+    void persistAndGo(pillar);
+  };
+
+  // Step 2 (text path): user typed a reply, ask the AI to route, then go.
+  const submitReply = async () => {
+    const text = reply.trim();
+    if (!text || stage === "routing") return;
+    setStage("routing");
+    setRouteError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("welcome-coach", {
+        body: {
+          action: "route",
+          intention: intention.trim(),
+          dedicatedTo: dedicatedTo.trim(),
+          reply: text,
+        },
+      });
+      if (error) throw error;
+      const pillar = (data?.pillar as Pillar | undefined) ?? "assembly";
+      await persistAndGo(pillar);
+    } catch (e) {
+      console.error("[welcome] route failed", e);
+      const msg = e instanceof Error ? e.message : "Couldn't reach the coach.";
+      setRouteError(msg);
+      setStage("reply");
+    }
+  };
+
+  // Fork path used by the lower nav row — quick play, no conversation.
+  const goToPillar = (to: Destination["to"]) => {
+    const finalIntention = intention.trim();
     const finalDedication = dedicatedTo.trim();
     const search: { intention?: string; dedicatedTo?: string } = {};
     if (finalIntention) search.intention = finalIntention;
@@ -110,13 +199,20 @@ export function WelcomePage() {
 
   const handleTemplate = (tpl: IntentionTemplate) => {
     setIntention(tpl.intention);
-    void handleCommitToSet(tpl.intention);
+    void submitIntention(tpl.intention);
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      void handleCommitToSet();
+      void submitIntention();
+    }
+  };
+
+  const onReplyKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void submitReply();
     }
   };
 
@@ -227,20 +323,22 @@ export function WelcomePage() {
               value={intention}
               onChange={(e) => setIntention(e.target.value)}
               onKeyDown={onKeyDown}
+              disabled={stage === "reflecting"}
               placeholder="What do you want to say? (e.g. a slow morning for E.)"
               autoFocus
               className={cn(
                 "w-full bg-transparent py-3 pr-10 text-base text-foreground",
                 "placeholder:text-muted-foreground/50",
                 "border-0 focus:outline-none",
+                "disabled:opacity-60",
               )}
             />
             <button
               type="button"
-              onClick={() => handleCommitToSet()}
-              disabled={saving}
-              aria-label="Plant a set with this intention"
-              title="Plant a set"
+              onClick={() => void submitIntention()}
+              disabled={stage === "reflecting" || !intention.trim()}
+              aria-label="Share this intention"
+              title="Share this intention"
               className={cn(
                 "absolute right-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full",
                 "text-muted-foreground/60 transition-all",
@@ -248,7 +346,11 @@ export function WelcomePage() {
                 "disabled:opacity-40",
               )}
             >
-              <Sprout className="h-4 w-4" />
+              {stage === "reflecting" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sprout className="h-4 w-4" />
+              )}
             </button>
           </div>
 
@@ -260,10 +362,12 @@ export function WelcomePage() {
               onChange={(e) => setDedicatedTo(e.target.value)}
               placeholder="for… (optional)"
               maxLength={120}
+              disabled={stage === "reflecting"}
               className={cn(
                 "w-full border-0 border-b border-transparent bg-transparent py-1.5 text-sm italic text-foreground/80",
                 "placeholder:italic placeholder:text-muted-foreground/45",
                 "focus:border-warm-link/40 focus:outline-none",
+                "disabled:opacity-60",
               )}
             />
           </div>
@@ -280,14 +384,112 @@ export function WelcomePage() {
             </p>
           )}
 
+          {/* === The conversation panel === */}
+          <AnimatePresence>
+            {(stage === "reply" || stage === "routing" || (stage === "reflecting" && reflection)) && (
+              <motion.div
+                key="coach-panel"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                className="mt-6 rounded-2xl border border-warm-link/30 bg-card/70 p-5 text-left backdrop-blur-sm"
+              >
+                <p className="font-display text-sm italic leading-relaxed text-foreground/85">
+                  {reflection}
+                </p>
+
+                {/* Pillar chips */}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {pillarChips.map((c) => (
+                    <button
+                      key={c.pillar}
+                      type="button"
+                      onClick={() => chooseChip(c.pillar)}
+                      disabled={saving || stage === "routing"}
+                      title={c.hint}
+                      className={cn(
+                        "inline-flex flex-col items-start gap-0.5 rounded-xl border border-border/60 bg-background/40 px-3 py-2 text-left transition-all",
+                        "hover:border-warm-link hover:bg-warm-link/10",
+                        "disabled:cursor-not-allowed disabled:opacity-40",
+                      )}
+                    >
+                      <span className="text-sm text-foreground">{c.label}</span>
+                      <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70">
+                        {c.hint}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Free-text reply */}
+                <div className="mt-4 flex items-center gap-2">
+                  <input
+                    ref={replyInputRef}
+                    type="text"
+                    value={reply}
+                    onChange={(e) => setReply(e.target.value)}
+                    onKeyDown={onReplyKeyDown}
+                    disabled={stage === "routing"}
+                    placeholder="…or say it your own way"
+                    maxLength={500}
+                    className={cn(
+                      "flex-1 rounded-full border border-border/60 bg-background/60 px-4 py-2 text-sm text-foreground",
+                      "placeholder:italic placeholder:text-muted-foreground/50",
+                      "focus:border-warm-link focus:outline-none",
+                      "disabled:opacity-60",
+                    )}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void submitReply()}
+                    disabled={stage === "routing" || !reply.trim()}
+                    aria-label="Send reply"
+                    className={cn(
+                      "flex h-9 w-9 items-center justify-center rounded-full bg-warm-link/15 text-warm-link transition-all",
+                      "hover:bg-warm-link/25",
+                      "disabled:opacity-40",
+                    )}
+                  >
+                    {stage === "routing" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ArrowRight className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+
+                {routeError && (
+                  <p className="mt-2 text-[11px] italic text-destructive/80">
+                    {routeError}
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStage("intent");
+                    setReflection("");
+                    setReply("");
+                    setRouteError(null);
+                  }}
+                  className="mt-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 hover:text-foreground"
+                >
+                  ← Edit intention
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* One-tap intention templates */}
+          {stage === "intent" && (
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
             {intentionTemplates.map((tpl) => (
               <button
                 key={tpl.label}
                 type="button"
                 onClick={() => handleTemplate(tpl)}
-                disabled={saving}
+                disabled={stage !== "intent"}
                 title={tpl.intention}
                 className={cn(
                   "group inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/50 px-3 py-1.5",
@@ -301,10 +503,13 @@ export function WelcomePage() {
               </button>
             ))}
           </div>
+          )}
 
-          <p className="mt-3 text-[11px] italic text-muted-foreground/60">
-            Press the seedling to plant a set — or pick a pillar below to just play.
-          </p>
+          {stage === "intent" && (
+            <p className="mt-3 text-[11px] italic text-muted-foreground/60">
+              Press the seedling to share — the coach will help you find where to start.
+            </p>
+          )}
         </motion.div>
 
         <motion.div
