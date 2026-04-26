@@ -322,24 +322,39 @@ function useSetAudioEngine(playhead: number, setPlayhead: (n: number) => void) {
   );
 
   const play = useCallback(async () => {
+    console.log("[engine] play() called", {
+      clips: clips.length,
+      playhead,
+      totalDuration,
+    });
     if (clips.length === 0) {
       // No real audio yet → just toggle visual playhead.
+      console.log("[engine] no clips → visual-only play");
       setPlaying(true);
       return;
     }
-    await ensureCtx();
+    try {
+      await ensureCtx();
+    } catch (e) {
+      console.error("[engine] ensureCtx failed", e);
+      toast.error("Couldn't start audio context.");
+      return;
+    }
     const fromHead = playhead >= totalDuration ? 0 : playhead;
     if (fromHead !== playhead) setPlayhead(fromHead);
     scheduleFrom(fromHead);
+    console.log("[engine] scheduled, ctx state:", ctxRef.current?.state);
     setPlaying(true);
   }, [clips.length, ensureCtx, playhead, scheduleFrom, setPlayhead, totalDuration]);
 
   const pause = useCallback(() => {
+    console.log("[engine] pause() called");
     stopAllSources();
     setPlaying(false);
   }, [stopAllSources]);
 
   const stop = useCallback(() => {
+    console.log("[engine] stop() called");
     stopAllSources();
     setPlaying(false);
     setPlayhead(0);
