@@ -1,12 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { ChevronLeft, Play, Pause, RotateCcw, Plus, Minus, Shuffle, Magnet, Send } from "lucide-react";
+import { Play, Pause, RotateCcw, Plus, Minus, Shuffle, Magnet, Send } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { zodValidator } from "@tanstack/zod-adapter";
 import { intentionSearchSchema } from "@/utils/intention";
 import { handoffToAssembly } from "@/utils/handoff";
 import { toast } from "sonner";
+import { useFocusHandoff } from "@/hooks/useFocusHandoff";
 
 export const Route = createFileRoute("/_app/beatmaker")({
   validateSearch: zodValidator(intentionSearchSchema),

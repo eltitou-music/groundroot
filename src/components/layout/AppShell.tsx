@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation } from "@tanstack/react-router";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { PillarTaxi } from "@/components/layout/PillarTaxi";
+import { HomeButton } from "@/components/layout/HomeButton";
 import logo from "@/assets/groundroot-logo.png";
 
 export function AppShell() {
@@ -27,7 +28,10 @@ export function AppShell() {
           </div>
         </header>
       ) : (
-        <PillarTaxi />
+        <>
+          <PillarTaxi />
+          <HomeButton />
+        </>
       )}
 
       <main className="flex-1 overflow-x-hidden">
