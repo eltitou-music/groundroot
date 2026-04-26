@@ -75,8 +75,7 @@ export function PillarTaxi() {
   };
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-3 z-40 flex justify-center px-4">
-      <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-border/60 bg-card/70 px-1.5 py-1 backdrop-blur-md shadow-sm">
+    <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card/70 px-1.5 py-1 backdrop-blur-md shadow-sm">
         <button
           onClick={() => go(-1)}
           aria-label="Previous pillar"
@@ -133,7 +132,6 @@ export function PillarTaxi() {
             <Home className="h-3 w-3" />
           </button>
         )}
-      </div>
     </div>
   );
 }

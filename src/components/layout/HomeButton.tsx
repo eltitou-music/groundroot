@@ -1,25 +1,25 @@
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { Home } from "lucide-react";
 
 /**
- * Top-right home button — mirrors the logo's top-left placement.
+ * Home button — placed in the top ribbon on every pillar page.
  * GroundRoot never goes "back"; we only ever return home.
- * Hidden on the welcome surface itself (you're already home).
  */
-export function HomeButton() {
-  const { pathname } = useLocation();
-  if (pathname === "/" || pathname.startsWith("/welcome")) return null;
-
+export function HomeButton({ hasUnread = false }: { hasUnread?: boolean }) {
   return (
-    <div className="pointer-events-none fixed right-4 top-3 z-50 md:right-6">
-      <Link
-        to="/welcome"
-        aria-label="Home"
-        title="Home"
-        className="pointer-events-auto inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-card/70 text-foreground/80 backdrop-blur-md shadow-sm transition-all hover:border-warm-link hover:text-warm-link hover:bg-warm-link/10"
-      >
-        <Home className="h-4 w-4" />
-      </Link>
-    </div>
+    <Link
+      to="/welcome"
+      aria-label="Home — today's intention"
+      title="Home — today's intention"
+      className="relative inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/60 bg-card/70 text-foreground/80 backdrop-blur-md shadow-sm transition-all hover:border-warm-link hover:text-warm-link hover:bg-warm-link/10"
+    >
+      <Home className="h-3.5 w-3.5" />
+      {hasUnread ? (
+        <span
+          aria-hidden
+          className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-warm-link shadow-sm"
+        />
+      ) : null}
+    </Link>
   );
 }
