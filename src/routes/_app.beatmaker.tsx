@@ -332,16 +332,8 @@ function BeatmakerPage() {
   return (
     <div className="relative flex min-h-[calc(100vh-4rem)] flex-col items-center px-4 py-20 md:px-6">
       <div className="mx-auto w-full max-w-6xl">
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/welcome" })}
-          className="mb-10 inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-warm-link/70 transition-opacity hover:opacity-100"
-        >
-          <ChevronLeft className="h-3 w-3" />
-          Back
-        </button>
-
         <motion.h1
+          id="gr-section-pads"
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
