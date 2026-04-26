@@ -1,6 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { ChevronLeft } from "lucide-react";
 
 export const Route = createFileRoute("/_app/about")({
   head: () => ({
@@ -18,14 +17,6 @@ function AboutPage() {
   return (
     <div className="relative flex min-h-[calc(100vh-4rem)] flex-col items-center px-6 py-20">
       <div className="mx-auto w-full max-w-3xl">
-        <Link
-          to="/welcome"
-          className="mb-12 inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-warm-link/70 transition-opacity hover:opacity-100"
-        >
-          <ChevronLeft className="h-3 w-3" />
-          Back
-        </Link>
-
         <motion.h1
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}

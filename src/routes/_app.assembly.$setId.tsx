@@ -1,7 +1,7 @@
 import { createFileRoute, useParams, Link } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SourcesPanel } from "@/components/assembly/SourcesPanel";
 import { TransitionMap } from "@/components/assembly/TransitionMap";
@@ -82,13 +82,6 @@ function AssemblyPage() {
     <div className="flex h-screen flex-col bg-background">
       <header className="flex items-center justify-between border-b border-border bg-card/50 px-6 py-3 backdrop-blur">
         <div className="flex items-center gap-3">
-          <Link
-            to="/"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            aria-label="Back to intro"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Link>
           <div>
             <h1 className="font-display text-lg leading-tight">{setRow.title}</h1>
             {setRow.occasion ? (
