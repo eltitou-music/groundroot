@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ArrowRight, Sparkles, Loader2, ExternalLink, Pencil, Wand2, Send } from "lucide-react";
+import { ArrowRight, Sparkles, Loader2, ExternalLink, Pencil, Wand2, Send } from "lucide-react";
 import { useEffect, useState, type KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
 import {
@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { zodValidator } from "@tanstack/zod-adapter";
 import { intentionSearchSchema } from "@/utils/intention";
 import { handoffToAssembly } from "@/utils/handoff";
+import { useFocusHandoff } from "@/hooks/useFocusHandoff";
 
 export const Route = createFileRoute("/_app/library")({
   validateSearch: zodValidator(intentionSearchSchema),
@@ -31,8 +32,14 @@ export const Route = createFileRoute("/_app/library")({
 type Mode = "choose" | "prompt" | "suggestions";
 
 function LibraryPage() {
-  const { intention: incomingIntention } = Route.useSearch();
+  const { intention: incomingIntention, focus } = Route.useSearch();
   const navigate = useNavigate();
+  useFocusHandoff(focus, {
+    search: "the search prompt",
+    spotify: "the suggested seeds",
+    editorial: "the suggested seeds",
+    "add-to-set": "the search prompt",
+  });
   const [mode, setMode] = useState<Mode>("choose");
   const [intention, setIntention] = useState("");
   const [tracks, setTracks] = useState<LibraryTrack[] | null>(null);
@@ -123,15 +130,6 @@ function LibraryPage() {
   return (
     <div className="relative flex min-h-[calc(100vh-4rem)] flex-col items-center px-4 py-16 md:px-6 md:py-20">
       <div className="mx-auto w-full max-w-5xl">
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/welcome" })}
-          className="mb-8 inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-warm-link/70 transition-opacity hover:opacity-100"
-        >
-          <ChevronLeft className="h-3 w-3" />
-          Back
-        </button>
-
         <motion.h1
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
@@ -200,6 +198,7 @@ function LibraryPage() {
         {/* Prompt mode */}
         {mode === "prompt" && !tracks && !loading && (
           <motion.div
+            id="gr-section-search"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             className="mt-10"
@@ -236,6 +235,7 @@ function LibraryPage() {
         {/* Suggestions mode */}
         {mode === "suggestions" && !tracks && !loading && (
           <motion.div
+            id="gr-section-editorial"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             className="mt-10"

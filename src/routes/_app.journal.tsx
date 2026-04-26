@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Copy, ExternalLink, ChevronLeft } from "lucide-react";
+import { Copy, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -117,9 +117,6 @@ function JournalPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-20">
-      <Link to="/welcome" className="mb-10 inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-warm-link/70 hover:opacity-100">
-        <ChevronLeft className="h-3 w-3" /> Back
-      </Link>
       <h1 className="font-display text-5xl text-gradient-brand-radial">Journal</h1>
       <p className="mt-2 text-sm text-muted-foreground">A quiet log — what you planted, who it was for, how it landed.</p>
 

@@ -367,3 +367,18 @@
     animation: rootGrow 2.4s ease-out forwards;
   }
 }
+
+/* === Welcome coach handoff spotlight ===
+   Applied briefly to a destination section when the user is routed
+   in from the welcome conversation. Soft glow, no layout shift. */
+@keyframes grSpotlight {
+  0%   { box-shadow: 0 0 0 0 color-mix(in oklab, var(--warm-link, oklch(0.65 0.13 60)) 0%, transparent); }
+  35%  { box-shadow: 0 0 0 6px color-mix(in oklab, var(--warm-link, oklch(0.65 0.13 60)) 35%, transparent),
+                       0 0 28px 4px color-mix(in oklab, var(--warm-link, oklch(0.65 0.13 60)) 25%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--warm-link, oklch(0.65 0.13 60)) 0%, transparent); }
+}
+.gr-spotlight {
+  animation: grSpotlight 3.2s ease-out;
+  border-radius: 1rem;
+  scroll-margin-top: 5rem;
+}

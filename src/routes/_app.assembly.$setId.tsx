@@ -1,7 +1,7 @@
-import { createFileRoute, useParams, Link } from "@tanstack/react-router";
+import { createFileRoute, useParams, useSearch, Link } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SourcesPanel } from "@/components/assembly/SourcesPanel";
 import { TransitionMap } from "@/components/assembly/TransitionMap";
@@ -9,6 +9,7 @@ import { CoPilotPanel } from "@/components/assembly/CoPilotPanel";
 import { IntentionPin } from "@/components/assembly/IntentionPin";
 import type { Tables } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import { useFocusHandoff } from "@/hooks/useFocusHandoff";
 
 export const Route = createFileRoute("/_app/assembly/$setId")({
   component: AssemblyPage,
@@ -19,6 +20,13 @@ export type TrackRow = Tables<"tracks">;
 
 function AssemblyPage() {
   const { setId } = useParams({ from: "/_app/assembly/$setId" });
+  const search = useSearch({ strict: false }) as { focus?: string };
+  useFocusHandoff(search.focus, {
+    "intention-pin": "your intention",
+    sources: "sources — bring tracks in",
+    transitions: "the transition map",
+    copilot: "the co-pilot",
+  });
   const [setRow, setSetRow] = useState<SetRow | null>(null);
   const [tracks, setTracks] = useState<TrackRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,13 +90,6 @@ function AssemblyPage() {
     <div className="flex h-screen flex-col bg-background">
       <header className="flex items-center justify-between border-b border-border bg-card/50 px-6 py-3 backdrop-blur">
         <div className="flex items-center gap-3">
-          <Link
-            to="/"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            aria-label="Back to intro"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Link>
           <div>
             <h1 className="font-display text-lg leading-tight">{setRow.title}</h1>
             {setRow.occasion ? (
@@ -102,7 +103,9 @@ function AssemblyPage() {
         </div>
       </header>
 
-      <IntentionPin setRow={setRow} onUpdate={(s: SetRow) => setSetRow(s)} />
+      <div id="gr-section-intention-pin">
+        <IntentionPin setRow={setRow} onUpdate={(s: SetRow) => setSetRow(s)} />
+      </div>
 
       <motion.div
         initial={{ opacity: 0 }}
@@ -110,13 +113,13 @@ function AssemblyPage() {
         transition={{ duration: 0.4 }}
         className="grid min-h-0 flex-1 gap-px bg-border lg:grid-cols-[320px_1fr_360px]"
       >
-        <div className="flex min-h-0 flex-col bg-background">
+        <div id="gr-section-sources" className="flex min-h-0 flex-col bg-background">
           <SourcesPanel setId={setId} onTrackAdded={loadTracks} />
         </div>
-        <div className="flex min-h-0 flex-col bg-background">
+        <div id="gr-section-transitions" className="flex min-h-0 flex-col bg-background">
           <TransitionMap tracks={tracks} onChange={loadTracks} />
         </div>
-        <div className="flex min-h-0 flex-col bg-background">
+        <div id="gr-section-copilot" className="flex min-h-0 flex-col bg-background">
           <CoPilotPanel setRow={setRow} tracks={tracks} />
         </div>
       </motion.div>

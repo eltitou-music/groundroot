@@ -24,6 +24,7 @@ import { intentionSearchSchema } from "@/utils/intention";
 import { ensureUserId, findTodaySet } from "@/utils/today-set";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useFocusHandoff } from "@/hooks/useFocusHandoff";
 
 export const Route = createFileRoute("/_app/assembly")({
   validateSearch: zodValidator(intentionSearchSchema),
@@ -444,6 +445,13 @@ function useSetAudioEngine(playhead: number, setPlayhead: (n: number) => void) {
 }
 
 function AssemblyWorkspace() {
+  const { focus } = Route.useSearch();
+  useFocusHandoff(focus, {
+    "intention-pin": "your intention",
+    sources: "the track headers",
+    transitions: "the timeline",
+    copilot: "the transport",
+  });
   const [tracks, setTracks] = useState<Track[]>(initialTracks);
   const [playhead, setPlayhead] = useState(0);
   const [bpm, setBpm] = useState(124);

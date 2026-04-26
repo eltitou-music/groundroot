@@ -1,12 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { ChevronLeft, Play, Pause, RotateCcw, Plus, Minus, Shuffle, Magnet, Send } from "lucide-react";
+import { Play, Pause, RotateCcw, Plus, Minus, Shuffle, Magnet, Send } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { zodValidator } from "@tanstack/zod-adapter";
 import { intentionSearchSchema } from "@/utils/intention";
 import { handoffToAssembly } from "@/utils/handoff";
 import { toast } from "sonner";
+import { useFocusHandoff } from "@/hooks/useFocusHandoff";
 
 export const Route = createFileRoute("/_app/beatmaker")({
   validateSearch: zodValidator(intentionSearchSchema),
@@ -191,8 +192,14 @@ const STYLES: Style[] = [
 ];
 
 function BeatmakerPage() {
-  const { intention, dedicatedTo } = Route.useSearch();
+  const { intention, dedicatedTo, focus } = Route.useSearch();
   const navigate = useNavigate();
+  useFocusHandoff(focus, {
+    pads: "the pads — tap to place sounds",
+    tempo: "the tempo dial",
+    pattern: "the pattern row",
+    "send-to-set": "send your beat into the set",
+  });
   const [styleId, setStyleId] = useState<string>(STYLES[0].id);
   const [pattern, setPattern] = useState<boolean[][]>(() => stylePattern(STYLES[0]));
   const [playing, setPlaying] = useState(false);
@@ -325,16 +332,8 @@ function BeatmakerPage() {
   return (
     <div className="relative flex min-h-[calc(100vh-4rem)] flex-col items-center px-4 py-20 md:px-6">
       <div className="mx-auto w-full max-w-6xl">
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/welcome" })}
-          className="mb-10 inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-warm-link/70 transition-opacity hover:opacity-100"
-        >
-          <ChevronLeft className="h-3 w-3" />
-          Back
-        </button>
-
         <motion.h1
+          id="gr-section-pads"
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
@@ -399,6 +398,7 @@ function BeatmakerPage() {
 
         {/* Transport */}
         <motion.div
+          id="gr-section-tempo"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.35 }}
@@ -499,6 +499,7 @@ function BeatmakerPage() {
 
           {/* Send to Assembly — primary hand-off */}
           <button
+            id="gr-section-send-to-set"
             onClick={sendToAssembly}
             disabled={sending}
             className="ml-auto inline-flex h-11 items-center gap-1.5 rounded-full bg-warm-link px-4 text-xs uppercase tracking-[0.18em] text-background transition-opacity hover:opacity-90 disabled:opacity-50"
@@ -511,6 +512,7 @@ function BeatmakerPage() {
 
         {/* Grid */}
         <motion.div
+          id="gr-section-pattern"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.45 }}

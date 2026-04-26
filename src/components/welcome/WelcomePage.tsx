@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useNavigate, Link } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { HelpCircle, Sprout, BookHeart, Loader2, ArrowRight } from "lucide-react";
+import { HelpCircle, Sprout, BookHeart, Loader2, ArrowRight, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { RootSystem } from "@/components/welcome/RootSystem";
 import { findTodaySet, getOrCreateTodaySet, ensureUserId } from "@/utils/today-set";
+
+type Pillar = "beatmaker" | "library" | "assembly" | "mastering";
 
 type Destination = {
   label: string;
@@ -19,15 +21,6 @@ const destinations: Destination[] = [
   { label: "Library", hint: "find sounds", to: "/library" },
   { label: "Assembly", hint: "build a set", to: "/assembly" },
   { label: "Mastery", hint: "polish the finish", to: "/mastering" },
-];
-
-type Pillar = "beatmaker" | "library" | "assembly" | "mastering";
-
-const pillarChips: { pillar: Pillar; label: string; hint: string; to: Destination["to"] }[] = [
-  { pillar: "beatmaker", label: "Tap a beat", hint: "start with a pulse", to: "/beatmaker" },
-  { pillar: "library", label: "Find a song", hint: "go searching", to: "/library" },
-  { pillar: "assembly", label: "Arrange what I have", hint: "build the flow", to: "/assembly" },
-  { pillar: "mastering", label: "Polish a master", hint: "render & share", to: "/mastering" },
 ];
 
 type IntentionTemplate = {
@@ -45,27 +38,47 @@ const intentionTemplates: IntentionTemplate[] = [
   { label: "Road trip", emoji: "🚗", intention: "Road trip — uplifting indie and disco, windows-down energy" },
 ];
 
+/* ----- Conversation types ----- */
+
+type AssistantMsg = {
+  role: "assistant";
+  content: string;
+  chips?: string[];
+  isFinal?: boolean;
+  pillar?: Pillar;
+  section?: string;
+};
+type UserMsg = { role: "user"; content: string };
+type ChatMsg = AssistantMsg | UserMsg;
+
 export function WelcomePage() {
   const navigate = useNavigate();
+
+  // Form state
   const [intention, setIntention] = useState("");
   const [dedicatedTo, setDedicatedTo] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
   const [todaySetId, setTodaySetId] = useState<string | null>(null);
 
   // Conversation state
-  type Stage = "intent" | "reflecting" | "reply" | "routing";
-  const [stage, setStage] = useState<Stage>("intent");
-  const [reflection, setReflection] = useState<string>("");
-  const [reply, setReply] = useState<string>("");
-  const [routeError, setRouteError] = useState<string | null>(null);
-  const replyInputRef = useRef<HTMLInputElement | null>(null);
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [reply, setReply] = useState("");
+  const [pending, setPending] = useState(false);
+  const [routing, setRouting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  const replyInputRef = useRef<HTMLInputElement | null>(null);
+  const threadEndRef = useRef<HTMLDivElement | null>(null);
+
+  const conversationStarted = messages.length > 0;
+  const lastMsg = messages[messages.length - 1];
+  const lastIsAssistantQuestion =
+    lastMsg?.role === "assistant" && !lastMsg.isFinal;
+
+  // Resume today's set on mount
   useEffect(() => {
     let cancelled = false;
     supabase.auth.getSession().then(async ({ data }) => {
       if (cancelled) return;
-      setUserId(data.session?.user.id ?? null);
       const uid = data.session?.user.id;
       if (!uid) return;
       try {
@@ -74,52 +87,22 @@ export function WelcomePage() {
         setTodaySetId(today.id);
         if (today.intention) setIntention(today.intention);
         if (today.dedicated_to) setDedicatedTo(today.dedicated_to);
-      } catch {
-        /* ignore */
-      }
+      } catch { /* ignore */ }
     });
     return () => { cancelled = true; };
   }, []);
 
-  // Step 1 → call AI to reflect on the intention, advance to "reply" stage.
-  const submitIntention = async (overrideIntention?: string) => {
-    const finalIntention = (overrideIntention ?? intention).trim();
-    if (!finalIntention || stage === "reflecting") return;
-    setIntention(finalIntention);
-    setStage("reflecting");
-    setReflection("");
-    try {
-      const { data, error } = await supabase.functions.invoke("welcome-coach", {
-        body: {
-          action: "reflect",
-          intention: finalIntention,
-          dedicatedTo: dedicatedTo.trim(),
-        },
-      });
-      if (error) throw error;
-      const text = (data?.reflection as string | undefined)?.trim();
-      setReflection(
-        text ||
-          "What a tender wish. Where do you want to begin — a beat, a song, an arrangement, or a polish?",
-      );
-      setStage("reply");
-      // Focus the reply input shortly after it mounts
-      setTimeout(() => replyInputRef.current?.focus(), 150);
-    } catch (e) {
-      console.error("[welcome] reflect failed", e);
-      const msg = e instanceof Error ? e.message : "Couldn't reach the coach.";
-      toast.error(msg);
-      setStage("intent");
-    }
-  };
+  // Autoscroll to bottom of thread on new message
+  useEffect(() => {
+    threadEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages.length, pending]);
 
-  // Persist the set, then navigate to the chosen pillar.
-  const persistAndGo = async (pillar: Pillar) => {
-    if (saving) return;
-    setSaving(true);
+  /* ----- Persist + navigate to a pillar with focus ----- */
+  const persistAndGo = async (pillar: Pillar, section?: string) => {
+    if (routing) return;
+    setRouting(true);
     try {
       const uid = await ensureUserId();
-      setUserId(uid);
       const finalIntention = intention.trim();
       const today = await getOrCreateTodaySet(uid, finalIntention, dedicatedTo);
       if (!today.isFresh && (finalIntention || dedicatedTo.trim())) {
@@ -133,58 +116,113 @@ export function WelcomePage() {
       }
       setTodaySetId(today.id);
 
-      const search: { intention?: string; dedicatedTo?: string } = {};
+      const search: { intention?: string; dedicatedTo?: string; focus?: string } = {};
       if (finalIntention) search.intention = finalIntention;
       if (dedicatedTo.trim()) search.dedicatedTo = dedicatedTo.trim();
+      if (section) search.focus = section;
 
       if (pillar === "assembly") {
-        navigate({ to: "/assembly/$setId", params: { setId: today.id } });
+        navigate({
+          to: "/assembly/$setId",
+          params: { setId: today.id },
+          search: section ? { focus: section } : undefined,
+        });
       } else {
         navigate({
-          to: pillar === "beatmaker" ? "/beatmaker" : pillar === "library" ? "/library" : "/mastering",
+          to: pillar === "beatmaker" ? "/beatmaker"
+             : pillar === "library" ? "/library"
+             : "/mastering",
           search: Object.keys(search).length > 0 ? search : undefined,
         });
       }
     } catch (e) {
-      console.error(e);
+      console.error("[welcome] persistAndGo failed", e);
       toast.error("Couldn't start your set. Please try again.");
-    } finally {
-      setSaving(false);
+      setRouting(false);
     }
   };
 
-  // Step 2 (chip path): user tapped a pillar chip directly.
-  const chooseChip = (pillar: Pillar) => {
-    void persistAndGo(pillar);
-  };
-
-  // Step 2 (text path): user typed a reply, ask the AI to route, then go.
-  const submitReply = async () => {
-    const text = reply.trim();
-    if (!text || stage === "routing") return;
-    setStage("routing");
-    setRouteError(null);
-    try {
-      const { data, error } = await supabase.functions.invoke("welcome-coach", {
+  /* ----- Call the coach edge function ----- */
+  const callCoach = async (history: ChatMsg[]) => {
+    const turn = history.filter((m) => m.role === "assistant").length;
+    const { data, error: invokeError } = await supabase.functions.invoke(
+      "welcome-coach",
+      {
         body: {
-          action: "route",
+          action: "converse",
           intention: intention.trim(),
           dedicatedTo: dedicatedTo.trim(),
-          reply: text,
+          history: history.map((m) => ({ role: m.role, content: m.content })),
+          turn,
         },
-      });
-      if (error) throw error;
-      const pillar = (data?.pillar as Pillar | undefined) ?? "assembly";
-      await persistAndGo(pillar);
+      },
+    );
+    if (invokeError) throw invokeError;
+    return data as
+      | { kind: "followup"; message: string; chips: string[] }
+      | { kind: "route"; pillar: Pillar; section: string; message: string; why: string };
+  };
+
+  /* ----- Send a user reply (or start the conversation) ----- */
+  const send = async (userText?: string, isFirstSend = false) => {
+    if (pending || routing) return;
+    const text = (userText ?? reply).trim();
+
+    let nextHistory: ChatMsg[];
+    if (isFirstSend) {
+      // Seed the thread with the user's intention as the first user message.
+      nextHistory = [{ role: "user", content: intention.trim() }];
+    } else {
+      if (!text) return;
+      nextHistory = [...messages, { role: "user", content: text } as UserMsg];
+    }
+
+    setMessages(nextHistory);
+    setReply("");
+    setPending(true);
+    setError(null);
+
+    try {
+      const out = await callCoach(nextHistory);
+      if (out.kind === "followup") {
+        const assistantMsg: AssistantMsg = {
+          role: "assistant",
+          content: out.message,
+          chips: out.chips,
+        };
+        setMessages((prev) => [...prev, assistantMsg]);
+        setPending(false);
+        setTimeout(() => replyInputRef.current?.focus(), 200);
+      } else {
+        const assistantMsg: AssistantMsg = {
+          role: "assistant",
+          content: out.message,
+          isFinal: true,
+          pillar: out.pillar,
+          section: out.section,
+        };
+        setMessages((prev) => [...prev, assistantMsg]);
+        setPending(false);
+        // Brief pause so the user reads the send-off, then route.
+        setTimeout(() => persistAndGo(out.pillar, out.section), 1100);
+      }
     } catch (e) {
-      console.error("[welcome] route failed", e);
+      console.error("[welcome] coach failed", e);
       const msg = e instanceof Error ? e.message : "Couldn't reach the coach.";
-      setRouteError(msg);
-      setStage("reply");
+      setError(msg);
+      setPending(false);
     }
   };
 
-  // Fork path used by the lower nav row — quick play, no conversation.
+  /* ----- Begin conversation from the intention input ----- */
+  const submitIntention = (overrideIntention?: string) => {
+    const finalIntention = (overrideIntention ?? intention).trim();
+    if (!finalIntention || pending || routing) return;
+    if (overrideIntention) setIntention(overrideIntention);
+    void send(undefined, /* isFirstSend */ true);
+  };
+
+  /* ----- Skip the chat — quick pillar shortcut ----- */
   const goToPillar = (to: Destination["to"]) => {
     const finalIntention = intention.trim();
     const finalDedication = dedicatedTo.trim();
@@ -197,23 +235,18 @@ export function WelcomePage() {
     });
   };
 
-  const handleTemplate = (tpl: IntentionTemplate) => {
-    setIntention(tpl.intention);
-    void submitIntention(tpl.intention);
+  const restart = () => {
+    setMessages([]);
+    setReply("");
+    setError(null);
+    setPending(false);
   };
 
-  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      void submitIntention();
-    }
+  const onIntentionKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") { e.preventDefault(); submitIntention(); }
   };
-
-  const onReplyKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      void submitReply();
-    }
+  const onReplyKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") { e.preventDefault(); void send(); }
   };
 
   return (
@@ -228,7 +261,6 @@ export function WelcomePage() {
               "linear-gradient(180deg, #F4E6C5 0%, #E8DCC4 55%, #D4A574 100%)",
           }}
         />
-        {/* Soft sun */}
         <motion.div
           aria-hidden
           initial={{ scale: 0.96, opacity: 0 }}
@@ -247,7 +279,6 @@ export function WelcomePage() {
             }}
           />
         </motion.div>
-        {/* Grass blade horizon */}
         <svg
           aria-hidden
           viewBox="0 0 1200 30"
@@ -267,7 +298,6 @@ export function WelcomePage() {
             );
           })}
         </svg>
-        {/* Drifting paper plane — "this is going somewhere / to someone" */}
         <motion.svg
           aria-hidden
           viewBox="0 0 24 24"
@@ -302,10 +332,7 @@ export function WelcomePage() {
           <p className="font-display text-base italic text-foreground/80 md:text-lg">
             A place to plant something for someone.
           </p>
-          <span
-            aria-hidden
-            className="mt-1 block h-px w-32 bg-foreground/40"
-          />
+          <span aria-hidden className="mt-1 block h-px w-32 bg-foreground/40" />
         </motion.div>
 
         <motion.div
@@ -322,23 +349,23 @@ export function WelcomePage() {
               type="text"
               value={intention}
               onChange={(e) => setIntention(e.target.value)}
-              onKeyDown={onKeyDown}
-              disabled={stage === "reflecting"}
+              onKeyDown={onIntentionKey}
+              disabled={conversationStarted}
               placeholder="What do you want to say? (e.g. a slow morning for E.)"
               autoFocus
               className={cn(
                 "w-full bg-transparent py-3 pr-10 text-base text-foreground",
                 "placeholder:text-muted-foreground/50",
                 "border-0 focus:outline-none",
-                "disabled:opacity-60",
+                "disabled:opacity-70",
               )}
             />
             <button
               type="button"
-              onClick={() => void submitIntention()}
-              disabled={stage === "reflecting" || !intention.trim()}
-              aria-label="Share this intention"
-              title="Share this intention"
+              onClick={() => submitIntention()}
+              disabled={pending || !intention.trim() || conversationStarted}
+              aria-label="Begin the conversation"
+              title="Begin the conversation"
               className={cn(
                 "absolute right-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full",
                 "text-muted-foreground/60 transition-all",
@@ -346,7 +373,7 @@ export function WelcomePage() {
                 "disabled:opacity-40",
               )}
             >
-              {stage === "reflecting" ? (
+              {pending && !conversationStarted ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Sprout className="h-4 w-4" />
@@ -354,7 +381,7 @@ export function WelcomePage() {
             </button>
           </div>
 
-          {/* Dedication line — quiet, optional */}
+          {/* Dedication line */}
           <div className="mt-3 px-6">
             <input
               type="text"
@@ -362,17 +389,17 @@ export function WelcomePage() {
               onChange={(e) => setDedicatedTo(e.target.value)}
               placeholder="for… (optional)"
               maxLength={120}
-              disabled={stage === "reflecting"}
+              disabled={conversationStarted}
               className={cn(
                 "w-full border-0 border-b border-transparent bg-transparent py-1.5 text-sm italic text-foreground/80",
                 "placeholder:italic placeholder:text-muted-foreground/45",
                 "focus:border-warm-link/40 focus:outline-none",
-                "disabled:opacity-60",
+                "disabled:opacity-70",
               )}
             />
           </div>
 
-          {todaySetId && (
+          {todaySetId && !conversationStarted && (
             <p className="mt-3 text-center text-[11px] text-muted-foreground/70">
               <button
                 type="button"
@@ -384,134 +411,126 @@ export function WelcomePage() {
             </p>
           )}
 
-          {/* === The conversation panel === */}
+          {/* === The conversation thread === */}
           <AnimatePresence>
-            {(stage === "reply" || stage === "routing" || (stage === "reflecting" && reflection)) && (
+            {conversationStarted && (
               <motion.div
-                key="coach-panel"
+                key="thread"
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.6, ease: "easeOut" }}
-                className="mt-6 rounded-2xl border border-warm-link/30 bg-card/70 p-5 text-left backdrop-blur-sm"
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                className="mt-6 space-y-3 text-left"
               >
-                <p className="font-display text-sm italic leading-relaxed text-foreground/85">
-                  {reflection}
-                </p>
-
-                {/* Pillar chips */}
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {pillarChips.map((c) => (
-                    <button
-                      key={c.pillar}
-                      type="button"
-                      onClick={() => chooseChip(c.pillar)}
-                      disabled={saving || stage === "routing"}
-                      title={c.hint}
-                      className={cn(
-                        "inline-flex flex-col items-start gap-0.5 rounded-xl border border-border/60 bg-background/40 px-3 py-2 text-left transition-all",
-                        "hover:border-warm-link hover:bg-warm-link/10",
-                        "disabled:cursor-not-allowed disabled:opacity-40",
-                      )}
-                    >
-                      <span className="text-sm text-foreground">{c.label}</span>
-                      <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70">
-                        {c.hint}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Free-text reply */}
-                <div className="mt-4 flex items-center gap-2">
-                  <input
-                    ref={replyInputRef}
-                    type="text"
-                    value={reply}
-                    onChange={(e) => setReply(e.target.value)}
-                    onKeyDown={onReplyKeyDown}
-                    disabled={stage === "routing"}
-                    placeholder="…or say it your own way"
-                    maxLength={500}
-                    className={cn(
-                      "flex-1 rounded-full border border-border/60 bg-background/60 px-4 py-2 text-sm text-foreground",
-                      "placeholder:italic placeholder:text-muted-foreground/50",
-                      "focus:border-warm-link focus:outline-none",
-                      "disabled:opacity-60",
-                    )}
+                {messages.map((m, i) => (
+                  <ChatBubble
+                    key={i}
+                    msg={m}
+                    onChip={(label) => void send(label)}
+                    disabled={pending || routing || i !== messages.length - 1}
                   />
-                  <button
-                    type="button"
-                    onClick={() => void submitReply()}
-                    disabled={stage === "routing" || !reply.trim()}
-                    aria-label="Send reply"
-                    className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-full bg-warm-link/15 text-warm-link transition-all",
-                      "hover:bg-warm-link/25",
-                      "disabled:opacity-40",
-                    )}
-                  >
-                    {stage === "routing" ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ArrowRight className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
+                ))}
 
-                {routeError && (
-                  <p className="mt-2 text-[11px] italic text-destructive/80">
-                    {routeError}
-                  </p>
+                {pending && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="flex items-center gap-2 px-2 text-xs italic text-muted-foreground/70"
+                  >
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    listening…
+                  </motion.div>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStage("intent");
-                    setReflection("");
-                    setReply("");
-                    setRouteError(null);
-                  }}
-                  className="mt-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 hover:text-foreground"
-                >
-                  ← Edit intention
-                </button>
+                {/* Reply box — only when last message is a question and not routing */}
+                {lastIsAssistantQuestion && !pending && !routing && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      ref={replyInputRef}
+                      type="text"
+                      value={reply}
+                      onChange={(e) => setReply(e.target.value)}
+                      onKeyDown={onReplyKey}
+                      placeholder="…or say it your own way"
+                      maxLength={500}
+                      className={cn(
+                        "flex-1 rounded-full border border-border/60 bg-background/60 px-4 py-2 text-sm text-foreground",
+                        "placeholder:italic placeholder:text-muted-foreground/50",
+                        "focus:border-warm-link focus:outline-none",
+                      )}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void send()}
+                      disabled={!reply.trim()}
+                      aria-label="Send reply"
+                      className={cn(
+                        "flex h-9 w-9 items-center justify-center rounded-full bg-warm-link/15 text-warm-link transition-all",
+                        "hover:bg-warm-link/25",
+                        "disabled:opacity-40",
+                      )}
+                    >
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+
+                {routing && (
+                  <div className="mt-2 flex items-center gap-2 px-2 text-xs italic text-warm-link">
+                    <Sparkles className="h-3 w-3" />
+                    walking you there…
+                  </div>
+                )}
+
+                {error && (
+                  <p className="px-2 text-[11px] italic text-destructive/80">{error}</p>
+                )}
+
+                <div ref={threadEndRef} />
+
+                {/* Soft escape hatch */}
+                {!routing && (
+                  <button
+                    type="button"
+                    onClick={restart}
+                    className="mt-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 hover:text-foreground"
+                  >
+                    ← Start over
+                  </button>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* One-tap intention templates */}
-          {stage === "intent" && (
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-            {intentionTemplates.map((tpl) => (
-              <button
-                key={tpl.label}
-                type="button"
-                onClick={() => handleTemplate(tpl)}
-                disabled={stage !== "intent"}
-                title={tpl.intention}
-                className={cn(
-                  "group inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/50 px-3 py-1.5",
-                  "text-xs text-foreground/80 backdrop-blur-sm transition-all",
-                  "hover:border-warm-link hover:bg-warm-link/10 hover:text-foreground",
-                  "disabled:cursor-not-allowed disabled:opacity-40",
-                )}
-              >
-                <span aria-hidden className="text-sm leading-none">{tpl.emoji}</span>
-                <span>{tpl.label}</span>
-              </button>
-            ))}
-          </div>
-          )}
-
-          {stage === "intent" && (
-            <p className="mt-3 text-[11px] italic text-muted-foreground/60">
-              Press the seedling to share — the coach will help you find where to start.
-            </p>
+          {/* One-tap intention templates (only before the chat starts) */}
+          {!conversationStarted && (
+            <>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                {intentionTemplates.map((tpl) => (
+                  <button
+                    key={tpl.label}
+                    type="button"
+                    onClick={() => submitIntention(tpl.intention)}
+                    title={tpl.intention}
+                    className={cn(
+                      "group inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/50 px-3 py-1.5",
+                      "text-xs text-foreground/80 backdrop-blur-sm transition-all",
+                      "hover:border-warm-link hover:bg-warm-link/10 hover:text-foreground",
+                    )}
+                  >
+                    <span aria-hidden className="text-sm leading-none">{tpl.emoji}</span>
+                    <span>{tpl.label}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-3 text-[11px] italic text-muted-foreground/60">
+                Press the seedling — the coach will help you find where to start.
+              </p>
+            </>
           )}
         </motion.div>
 
+        {/* Bottom nav row — quick shortcuts (always visible) */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -559,7 +578,6 @@ export function WelcomePage() {
         aria-hidden
         className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-56 md:h-64"
       >
-        {/* Soil gradient */}
         <div
           className="absolute inset-0"
           style={{
@@ -567,10 +585,67 @@ export function WelcomePage() {
               "linear-gradient(180deg, rgba(139,90,43,0) 0%, rgba(139,90,43,0.55) 25%, rgba(61,46,32,0.92) 70%, rgba(42,31,23,1) 100%)",
           }}
         />
-        {/* Root system */}
         <div className="absolute inset-x-0 bottom-0 h-full">
           <RootSystem />
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Chat bubble ---------------- */
+
+function ChatBubble({
+  msg,
+  onChip,
+  disabled,
+}: {
+  msg: ChatMsg;
+  onChip: (label: string) => void;
+  disabled: boolean;
+}) {
+  if (msg.role === "user") {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[85%] rounded-2xl rounded-tr-sm border border-border/40 bg-warm-link/10 px-4 py-2 text-sm text-foreground/90">
+          {msg.content}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex justify-start">
+      <div
+        className={cn(
+          "max-w-[92%] rounded-2xl rounded-tl-sm border bg-card/70 px-4 py-3 backdrop-blur-sm",
+          msg.isFinal
+            ? "border-warm-link/60 shadow-[0_0_24px_-8px_var(--warm-link)]"
+            : "border-warm-link/30",
+        )}
+      >
+        <p className="font-display text-sm italic leading-relaxed text-foreground/90">
+          {msg.content}
+        </p>
+        {msg.chips && msg.chips.length > 0 && !msg.isFinal && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {msg.chips.map((chip) => (
+              <button
+                key={chip}
+                type="button"
+                disabled={disabled}
+                onClick={() => onChip(chip)}
+                className={cn(
+                  "rounded-full border border-border/60 bg-background/40 px-3 py-1 text-xs text-foreground/85 transition-all",
+                  "hover:border-warm-link hover:bg-warm-link/10 hover:text-foreground",
+                  "disabled:cursor-not-allowed disabled:opacity-40",
+                )}
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
