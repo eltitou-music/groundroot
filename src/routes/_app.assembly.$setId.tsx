@@ -1,4 +1,4 @@
-import { createFileRoute, useParams, Link } from "@tanstack/react-router";
+import { createFileRoute, useParams, useSearch, Link } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
@@ -9,6 +9,7 @@ import { CoPilotPanel } from "@/components/assembly/CoPilotPanel";
 import { IntentionPin } from "@/components/assembly/IntentionPin";
 import type { Tables } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import { useFocusHandoff } from "@/hooks/useFocusHandoff";
 
 export const Route = createFileRoute("/_app/assembly/$setId")({
   component: AssemblyPage,
@@ -19,6 +20,13 @@ export type TrackRow = Tables<"tracks">;
 
 function AssemblyPage() {
   const { setId } = useParams({ from: "/_app/assembly/$setId" });
+  const search = useSearch({ strict: false }) as { focus?: string };
+  useFocusHandoff(search.focus, {
+    "intention-pin": "your intention",
+    sources: "sources — bring tracks in",
+    transitions: "the transition map",
+    copilot: "the co-pilot",
+  });
   const [setRow, setSetRow] = useState<SetRow | null>(null);
   const [tracks, setTracks] = useState<TrackRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,13 +111,13 @@ function AssemblyPage() {
         transition={{ duration: 0.4 }}
         className="grid min-h-0 flex-1 gap-px bg-border lg:grid-cols-[320px_1fr_360px]"
       >
-        <div className="flex min-h-0 flex-col bg-background">
+        <div id="gr-section-sources" className="flex min-h-0 flex-col bg-background">
           <SourcesPanel setId={setId} onTrackAdded={loadTracks} />
         </div>
-        <div className="flex min-h-0 flex-col bg-background">
+        <div id="gr-section-transitions" className="flex min-h-0 flex-col bg-background">
           <TransitionMap tracks={tracks} onChange={loadTracks} />
         </div>
-        <div className="flex min-h-0 flex-col bg-background">
+        <div id="gr-section-copilot" className="flex min-h-0 flex-col bg-background">
           <CoPilotPanel setRow={setRow} tracks={tracks} />
         </div>
       </motion.div>
