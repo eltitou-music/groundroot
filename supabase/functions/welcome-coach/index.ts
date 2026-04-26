@@ -32,6 +32,7 @@ const SECTIONS: Record<Pillar, string[]> = {
 };
 
 const MAX_TURNS = 5;
+const MAX_TURNS_RESUMED = 8; // returning users get more breathing room
 
 const SYSTEM_BASE = `You are GroundRoot's welcome coach — a warm,
 Ghibli-quiet voice. Someone just told you the intention they want to plant
@@ -117,14 +118,23 @@ function buildMessages(
   dedicatedTo: string,
   history: Msg[],
   turn: number,
+  resumed: boolean,
+  lastPillar: string | null,
+  lastSection: string | null,
 ) {
-  const remaining = Math.max(0, MAX_TURNS - turn);
+  const cap = resumed ? MAX_TURNS_RESUMED : MAX_TURNS;
+  const remaining = Math.max(0, cap - turn);
   const mustRoute = remaining <= 1; // last turn → must commit
+
+  const resumeNote = resumed && lastPillar
+    ? `\n\n(Note: this user has come back to /welcome. Their last destination was "${lastPillar}${lastSection ? "/" + lastSection : ""}". If they ask "where did we leave off" or anything similar, route them back to that same pillar+section. If they're asking for something different, route them to the right new place. Be warm and brief — they may just want a reminder.)`
+    : "";
 
   const seed =
     `Intention: ${intention}` +
     (dedicatedTo ? `\nFor: ${dedicatedTo}` : "") +
-    `\n\n(Assistant turns used so far: ${turn} of ${MAX_TURNS}. ` +
+    resumeNote +
+    `\n\n(Assistant turns used so far: ${turn} of ${cap}. ` +
     (mustRoute
       ? "This is your FINAL turn — you MUST call route_to_pillar.)"
       : `You may ask up to ${remaining - 1} more follow-up(s) before routing.)`);
@@ -142,12 +152,18 @@ async function handleConverse(
   dedicatedTo: string,
   history: Msg[],
   turn: number,
+  resumed: boolean,
+  lastPillar: string | null,
+  lastSection: string | null,
 ) {
   const { messages, mustRoute } = buildMessages(
     intention,
     dedicatedTo,
     history,
     turn,
+    resumed,
+    lastPillar,
+    lastSection,
   );
 
   const tools = [
@@ -284,8 +300,25 @@ serve(async (req) => {
       .filter((m: Msg) => m.content.length > 0)
       .slice(-12);
     const turn = Math.max(0, Math.min(20, Number(body?.turn ?? 0)));
+    const resumed = Boolean(body?.resumed);
+    const lastPillar =
+      typeof body?.lastPillar === "string" && PILLARS.includes(body.lastPillar as Pillar)
+        ? (body.lastPillar as Pillar)
+        : null;
+    const lastSection =
+      typeof body?.lastSection === "string" && body.lastSection.length > 0
+        ? String(body.lastSection).slice(0, 40)
+        : null;
 
-    const out = await handleConverse(intention, dedicatedTo, history, turn);
+    const out = await handleConverse(
+      intention,
+      dedicatedTo,
+      history,
+      turn,
+      resumed,
+      lastPillar,
+      lastSection,
+    );
     return new Response(JSON.stringify(out), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
