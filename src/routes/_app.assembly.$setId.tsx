@@ -103,7 +103,9 @@ function AssemblyPage() {
         </div>
       </header>
 
-      <IntentionPin setRow={setRow} onUpdate={(s: SetRow) => setSetRow(s)} />
+      <div id="gr-section-intention-pin">
+        <IntentionPin setRow={setRow} onUpdate={(s: SetRow) => setSetRow(s)} />
+      </div>
 
       <motion.div
         initial={{ opacity: 0 }}
