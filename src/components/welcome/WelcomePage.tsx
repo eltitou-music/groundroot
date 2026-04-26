@@ -1,7 +1,7 @@
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useNavigate, Link } from "@tanstack/react-router";
-import { motion } from "framer-motion";
-import { HelpCircle, Sprout, BookHeart } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { HelpCircle, Sprout, BookHeart, Loader2, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,15 @@ const destinations: Destination[] = [
   { label: "Library", hint: "find sounds", to: "/library" },
   { label: "Assembly", hint: "build a set", to: "/assembly" },
   { label: "Mastery", hint: "polish the finish", to: "/mastering" },
+];
+
+type Pillar = "beatmaker" | "library" | "assembly" | "mastering";
+
+const pillarChips: { pillar: Pillar; label: string; hint: string; to: Destination["to"] }[] = [
+  { pillar: "beatmaker", label: "Tap a beat", hint: "start with a pulse", to: "/beatmaker" },
+  { pillar: "library", label: "Find a song", hint: "go searching", to: "/library" },
+  { pillar: "assembly", label: "Arrange what I have", hint: "build the flow", to: "/assembly" },
+  { pillar: "mastering", label: "Polish a master", hint: "render & share", to: "/mastering" },
 ];
 
 type IntentionTemplate = {
@@ -44,6 +53,14 @@ export function WelcomePage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [todaySetId, setTodaySetId] = useState<string | null>(null);
 
+  // Conversation state
+  type Stage = "intent" | "reflecting" | "reply" | "routing";
+  const [stage, setStage] = useState<Stage>("intent");
+  const [reflection, setReflection] = useState<string>("");
+  const [reply, setReply] = useState<string>("");
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const replyInputRef = useRef<HTMLInputElement | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     supabase.auth.getSession().then(async ({ data }) => {
@@ -64,17 +81,47 @@ export function WelcomePage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Commit path: user explicitly wants a setlist. Creates session + sets row.
-  const handleCommitToSet = async (overrideIntention?: string) => {
+  // Step 1 → call AI to reflect on the intention, advance to "reply" stage.
+  const submitIntention = async (overrideIntention?: string) => {
+    const finalIntention = (overrideIntention ?? intention).trim();
+    if (!finalIntention || stage === "reflecting") return;
+    setIntention(finalIntention);
+    setStage("reflecting");
+    setReflection("");
+    try {
+      const { data, error } = await supabase.functions.invoke("welcome-coach", {
+        body: {
+          action: "reflect",
+          intention: finalIntention,
+          dedicatedTo: dedicatedTo.trim(),
+        },
+      });
+      if (error) throw error;
+      const text = (data?.reflection as string | undefined)?.trim();
+      setReflection(
+        text ||
+          "What a tender wish. Where do you want to begin — a beat, a song, an arrangement, or a polish?",
+      );
+      setStage("reply");
+      // Focus the reply input shortly after it mounts
+      setTimeout(() => replyInputRef.current?.focus(), 150);
+    } catch (e) {
+      console.error("[welcome] reflect failed", e);
+      const msg = e instanceof Error ? e.message : "Couldn't reach the coach.";
+      toast.error(msg);
+      setStage("intent");
+    }
+  };
+
+  // Persist the set, then navigate to the chosen pillar.
+  const persistAndGo = async (pillar: Pillar) => {
     if (saving) return;
     setSaving(true);
     try {
       const uid = await ensureUserId();
       setUserId(uid);
-      const finalIntention = (overrideIntention ?? intention).trim();
+      const finalIntention = intention.trim();
       const today = await getOrCreateTodaySet(uid, finalIntention, dedicatedTo);
-      // If we resumed an existing set but the user has typed a fresh intention,
-      // update the row so the dedication thread stays current.
       if (!today.isFresh && (finalIntention || dedicatedTo.trim())) {
         await supabase
           .from("sets")
@@ -85,7 +132,19 @@ export function WelcomePage() {
           .eq("id", today.id);
       }
       setTodaySetId(today.id);
-      navigate({ to: "/assembly/$setId", params: { setId: today.id } });
+
+      const search: { intention?: string; dedicatedTo?: string } = {};
+      if (finalIntention) search.intention = finalIntention;
+      if (dedicatedTo.trim()) search.dedicatedTo = dedicatedTo.trim();
+
+      if (pillar === "assembly") {
+        navigate({ to: "/assembly/$setId", params: { setId: today.id } });
+      } else {
+        navigate({
+          to: pillar === "beatmaker" ? "/beatmaker" : pillar === "library" ? "/library" : "/mastering",
+          search: Object.keys(search).length > 0 ? search : undefined,
+        });
+      }
     } catch (e) {
       console.error(e);
       toast.error("Couldn't start your set. Please try again.");
@@ -94,10 +153,40 @@ export function WelcomePage() {
     }
   };
 
-  // Fork path: user picked a pillar. Carry the intention as a query param.
-  // No DB write, no session — pure routing.
-  const goToPillar = (to: Destination["to"], overrideIntention?: string) => {
-    const finalIntention = (overrideIntention ?? intention).trim();
+  // Step 2 (chip path): user tapped a pillar chip directly.
+  const chooseChip = (pillar: Pillar) => {
+    void persistAndGo(pillar);
+  };
+
+  // Step 2 (text path): user typed a reply, ask the AI to route, then go.
+  const submitReply = async () => {
+    const text = reply.trim();
+    if (!text || stage === "routing") return;
+    setStage("routing");
+    setRouteError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("welcome-coach", {
+        body: {
+          action: "route",
+          intention: intention.trim(),
+          dedicatedTo: dedicatedTo.trim(),
+          reply: text,
+        },
+      });
+      if (error) throw error;
+      const pillar = (data?.pillar as Pillar | undefined) ?? "assembly";
+      await persistAndGo(pillar);
+    } catch (e) {
+      console.error("[welcome] route failed", e);
+      const msg = e instanceof Error ? e.message : "Couldn't reach the coach.";
+      setRouteError(msg);
+      setStage("reply");
+    }
+  };
+
+  // Fork path used by the lower nav row — quick play, no conversation.
+  const goToPillar = (to: Destination["to"]) => {
+    const finalIntention = intention.trim();
     const finalDedication = dedicatedTo.trim();
     const search: { intention?: string; dedicatedTo?: string } = {};
     if (finalIntention) search.intention = finalIntention;
@@ -110,13 +199,20 @@ export function WelcomePage() {
 
   const handleTemplate = (tpl: IntentionTemplate) => {
     setIntention(tpl.intention);
-    void handleCommitToSet(tpl.intention);
+    void submitIntention(tpl.intention);
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      void handleCommitToSet();
+      void submitIntention();
+    }
+  };
+
+  const onReplyKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void submitReply();
     }
   };
 
