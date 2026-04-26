@@ -14,6 +14,8 @@ import {
   ArrowRight,
   Volume2,
   VolumeX,
+  Bug,
+  X,
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
@@ -320,24 +322,39 @@ function useSetAudioEngine(playhead: number, setPlayhead: (n: number) => void) {
   );
 
   const play = useCallback(async () => {
+    console.log("[engine] play() called", {
+      clips: clips.length,
+      playhead,
+      totalDuration,
+    });
     if (clips.length === 0) {
       // No real audio yet → just toggle visual playhead.
+      console.log("[engine] no clips → visual-only play");
       setPlaying(true);
       return;
     }
-    await ensureCtx();
+    try {
+      await ensureCtx();
+    } catch (e) {
+      console.error("[engine] ensureCtx failed", e);
+      toast.error("Couldn't start audio context.");
+      return;
+    }
     const fromHead = playhead >= totalDuration ? 0 : playhead;
     if (fromHead !== playhead) setPlayhead(fromHead);
     scheduleFrom(fromHead);
+    console.log("[engine] scheduled, ctx state:", ctxRef.current?.state);
     setPlaying(true);
   }, [clips.length, ensureCtx, playhead, scheduleFrom, setPlayhead, totalDuration]);
 
   const pause = useCallback(() => {
+    console.log("[engine] pause() called");
     stopAllSources();
     setPlaying(false);
   }, [stopAllSources]);
 
   const stop = useCallback(() => {
+    console.log("[engine] stop() called");
     stopAllSources();
     setPlaying(false);
     setPlayhead(0);
@@ -432,6 +449,7 @@ function AssemblyWorkspace() {
   const [bpm, setBpm] = useState(124);
   const [pxPerSec, setPxPerSec] = useState(14);
   const [snap, setSnap] = useState(true);
+  const [debugOpen, setDebugOpen] = useState(true);
   const lanesScrollRef = useRef<HTMLDivElement>(null);
 
   const engine = useSetAudioEngine(playhead, setPlayhead);
@@ -577,6 +595,119 @@ function AssemblyWorkspace() {
           <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
+
+      {/* Debug HUD */}
+      {debugOpen ? (
+        <DebugHUD
+          state={{
+            playing: engine.playing,
+            playhead,
+            hasAudio: engine.hasAudio,
+            audioDuration: engine.audioDuration,
+            loading: engine.loading,
+            loadErr: engine.loadErr,
+            muted: engine.muted,
+          }}
+          onForcePlay={() => {
+            console.log("[debug] force play");
+            engine.play();
+          }}
+          onForcePause={() => {
+            console.log("[debug] force pause");
+            engine.pause();
+          }}
+          onClose={() => setDebugOpen(false)}
+        />
+      ) : (
+        <button
+          onClick={() => setDebugOpen(true)}
+          className="absolute left-4 bottom-4 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card/80 text-muted-foreground backdrop-blur hover:border-primary hover:text-primary"
+          aria-label="Open debug"
+          title="Debug"
+        >
+          <Bug className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Debug HUD ---------------- */
+
+function DebugHUD({
+  state,
+  onForcePlay,
+  onForcePause,
+  onClose,
+}: {
+  state: {
+    playing: boolean;
+    playhead: number;
+    hasAudio: boolean;
+    audioDuration: number;
+    loading: boolean;
+    loadErr: string | null;
+    muted: boolean;
+  };
+  onForcePlay: () => void;
+  onForcePause: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="absolute left-4 bottom-4 z-40 w-[320px] rounded-lg border border-border bg-card/95 p-3 font-mono text-[11px] shadow-xl backdrop-blur">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-1.5 text-muted-foreground">
+          <Bug className="h-3.5 w-3.5" />
+          <span className="uppercase tracking-[0.18em]">Engine debug</span>
+        </div>
+        <button
+          onClick={onClose}
+          className="text-muted-foreground hover:text-foreground"
+          aria-label="Close debug"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div className="space-y-0.5 text-foreground/90">
+        <Row k="playing" v={String(state.playing)} />
+        <Row k="playhead" v={state.playhead.toFixed(2) + "s"} />
+        <Row k="hasAudio" v={String(state.hasAudio)} />
+        <Row k="audioDuration" v={state.audioDuration.toFixed(2) + "s"} />
+        <Row k="loading" v={String(state.loading)} />
+        <Row k="muted" v={String(state.muted)} />
+        <Row k="loadErr" v={state.loadErr ?? "—"} />
+      </div>
+      <div className="mt-2 flex gap-1.5">
+        <button
+          onClick={onForcePlay}
+          className="flex-1 rounded border border-border bg-secondary px-2 py-1 text-[10px] uppercase tracking-wider hover:border-primary hover:text-primary"
+        >
+          Force play
+        </button>
+        <button
+          onClick={onForcePause}
+          className="flex-1 rounded border border-border bg-secondary px-2 py-1 text-[10px] uppercase tracking-wider hover:border-primary hover:text-primary"
+        >
+          Force pause
+        </button>
+      </div>
+      {!state.hasAudio ? (
+        <div className="mt-2 rounded border border-border bg-background/60 p-2 text-[10px] leading-relaxed text-muted-foreground">
+          No tracks decoded for today's set. The transport is in
+          <span className="text-foreground"> visual-only </span> mode — Pause
+          will toggle the playhead animation but no sound will play. Add tracks
+          to your set in the Beatmaker / Library, then refresh.
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <span className="text-muted-foreground">{k}</span>
+      <span className="truncate text-right">{v}</span>
     </div>
   );
 }
