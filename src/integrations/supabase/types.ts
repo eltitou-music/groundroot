@@ -90,6 +90,7 @@ export type Database = {
       }
       sets: {
         Row: {
+          coach_state: Json
           cover_image_url: string | null
           created_at: string
           dedicated_to: string | null
@@ -106,6 +107,7 @@ export type Database = {
           vision_notes: string | null
         }
         Insert: {
+          coach_state?: Json
           cover_image_url?: string | null
           created_at?: string
           dedicated_to?: string | null
@@ -122,6 +124,7 @@ export type Database = {
           vision_notes?: string | null
         }
         Update: {
+          coach_state?: Json
           cover_image_url?: string | null
           created_at?: string
           dedicated_to?: string | null

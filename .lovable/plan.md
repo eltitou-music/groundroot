@@ -1,151 +1,90 @@
-## Goal
+## Goals
 
-Two integrated changes to the welcome → pillar journey:
-
-1. **Replace every "Back" arrow with a Home button** (top-right of the screen, mirroring the logo top-left). GroundRoot never goes back — only home.
-2. **Turn the welcome flow into a real coaching conversation** (Claude-style, 3–5 back-and-forth turns with quick-reply chips), then route the user to the right pillar AND scroll/highlight the specific section they should use.
-
----
-
-## Part 1 — Home button (replaces back arrows)
-
-### What changes
-
-- **Add `HomeButton` component** (`src/components/layout/HomeButton.tsx`)
-  - Fixed top-right, z-40, mirrors the logo's top-left placement on `/welcome`.
-  - `Home` icon (lucide) inside a small rounded pill (matches `PillarTaxi` styling: `border border-border/60 bg-card/70 backdrop-blur-md`).
-  - Always navigates to `/welcome` (never `history.back()`).
-  - `aria-label="Home"`, tooltip "Home".
-
-- **Mount it in `AppShell`** alongside `PillarTaxi` (so it appears on every non-welcome route). The welcome route already shows the `ThemeToggle` top-right — keep that. Home button only appears when `PillarTaxi` is shown.
-
-- **Remove the "Back" buttons** from:
-  - `src/routes/_app.beatmaker.tsx` (lines 328–335)
-  - `src/routes/_app.library.tsx`
-  - `src/routes/_app.mastering.tsx`
-  - `src/routes/_app.about.tsx`
-  - `src/routes/_app.journal.tsx`
-  - `src/routes/_app.assembly.$setId.tsx`
-  - (Leave the in-component `ChevronLeft` in `SpotifyPanel` — that's a panel-internal back, not page nav.)
-
-### Layout
-
-```text
-[ logo  GroundRoot ]                              [ Home ]   ← welcome
-[                  PillarTaxi (centered)          Home   ]   ← pillars
-```
+1. Keep the welcome coach conversation alive so the user can return to `/welcome` and either re-read it, ask "where did we leave off", or jump back to where they were.
+2. Stop the floating Pillar Taxi + Home button from overlapping pillar page titles by introducing a real top ribbon that reserves space.
+3. Remove the floating Engine Debug HUD from the Assembly pane.
 
 ---
 
-## Part 2 — Multi-turn coaching conversation
+## 1. Persistent intention conversation on `/welcome`
 
-### Conversation shape
+### Storage
+Add a new table `coach_conversations` (one row per `set_id`, owned by user) with:
+- `id`, `user_id`, `set_id` (fk to `sets`, unique), `messages` jsonb (array of `{role, content, chips?, isFinal?, pillar?, section?}`), `last_pillar` text, `last_section` text, `created_at`, `updated_at`.
+- RLS: users can select/insert/update/delete their own rows via `user_id = auth.uid()`.
+- Trigger to bump `updated_at`.
 
-The current welcome only does one reflect → one reply → route. We expand it to a **chat thread** of up to 5 assistant turns that progressively narrows the user's intention, then routes with a guided handoff.
+(Storing on a dedicated table keeps the `sets` row clean and lets the conversation grow over multiple visits.)
 
-```text
-Turn 1  AI:  warm affirmation + first clarifying question
-        UI:  3–4 quick-reply chips + free text box
-Turn 2  AI:  acknowledges, asks a sharper question (mood / energy / time of day…)
-        UI:  3–4 chips + free text
-Turn 3  AI:  asks where in the journey they are (start from scratch? have material?)
-        UI:  chips + free text
-Turn 4  AI:  optional — narrows pillar (e.g. "drums first, or melody first?")
-Turn 5  AI:  "Here's where I'm taking you" — names the pillar + the specific
-             section/tool to use, then routes.
-```
+### Welcome page changes (`src/components/welcome/WelcomePage.tsx`)
+- On mount, after resolving today's set, load the matching `coach_conversations` row. If present:
+  - Restore `messages`, `intention`, `dedicatedTo`.
+  - Show a soft "Welcome back — we left off here" banner above the thread, with two buttons:
+    - **Continue where we left off** → navigates to `last_pillar` + `last_section` (using the existing `persistAndGo` flow).
+    - **Keep talking** → focuses the reply input so the user can ask a new question (e.g. "where did we leave off").
+- Persist after every turn:
+  - When the user sends a message, when the coach replies, and when the coach routes — upsert `messages`, `last_pillar`, `last_section`.
+- Add a small **"Start a new intention"** link that clears the conversation (deletes the row, resets state) for users who want a fresh canvas.
 
-The AI decides each turn whether to **ask another question** or **commit to a route**. Hard cap at 5 turns; if it hasn't routed by turn 5, it must route.
+### Coach edge function (`supabase/functions/welcome-coach/index.ts`)
+- Add a new branch handling **resumed conversations**: when the latest message is a *user* message arriving after a previous `route_to_pillar` (so `isFinal` was true), the system prompt is extended with: "The user has come back. Their last destination was `<pillar>/<section>`. Either gently remind them where they were and offer to send them back, or route them somewhere new if they're asking for something different."
+- Bump `MAX_TURNS` only for resumed sessions (e.g. allow 3 extra turns per resume) so a returning user isn't immediately forced into a route.
+- The model can still call `route_to_pillar`; on a "where did we leave off" style question, the prompt steers it to call `route_to_pillar` with the previous `last_pillar`/`last_section` so the same focus highlight kicks in on arrival.
 
-### Edge function changes (`supabase/functions/welcome-coach/index.ts`)
-
-Replace the two-action design with **one action: `converse`**, plus keep `reflect` as a thin wrapper for backwards compatibility (or remove — it's only called from one place).
-
-New request body:
-```json
-{
-  "intention": "...",
-  "dedicatedTo": "...",
-  "history": [
-    { "role": "assistant", "content": "..." },
-    { "role": "user", "content": "..." }
-  ],
-  "turn": 2
-}
-```
-
-The AI is given **two tools** and must call exactly one each turn:
-
-- `ask_followup(question, chips[])` — chips are 3–4 short labels (≤ 4 words each) that the user can tap as a quick reply. Free text always remains available.
-- `route_to_pillar(pillar, section, why)` — finalises. `section` is one of a known enum per pillar (see "Section anchors" below).
-
-System prompt updates:
-- "You are a warm, Ghibli-quiet coach. Ask up to 4 short, focused follow-ups before routing. Each question narrows ONE dimension: mood, energy arc, time of day, what they already have, where they want to start. Never repeat a dimension you've already asked about. After turn 5 you MUST route."
-- Tone rules unchanged (warm, no buzzwords, ≤ 60 words).
-- When `turn >= 5`, the system message forces `route_to_pillar`.
-
-Response shape:
-```json
-// follow-up turn
-{ "kind": "followup", "message": "…", "chips": ["Sunset", "After dark", "Morning"] }
-// final turn
-{ "kind": "route", "message": "Let's start in the Library and find your anchor track.",
-  "pillar": "library", "section": "search", "why": "…" }
-```
-
-### Section anchors per pillar (handoff targets)
-
-Each pillar exposes a small set of named sections the AI can point to. We add `id` attributes + a one-time highlight effect.
-
-| Pillar     | Sections (enum)                                          |
-|------------|----------------------------------------------------------|
-| beatmaker  | `pads`, `tempo`, `pattern`, `send-to-set`               |
-| library    | `search`, `spotify`, `editorial`, `add-to-set`          |
-| assembly   | `intention-pin`, `sources`, `transitions`, `copilot`    |
-| mastering  | `loudness`, `eq`, `render`, `share`                     |
-
-Implementation:
-- In each pillar page, add `id="gr-section-{name}"` on the existing primary panels (no UI change, just anchor IDs).
-- Pillar routes already accept `?intention=` & `?dedicatedTo=` via `intentionSearchSchema`. Extend it with optional `?focus={section}` (zod fallback to "").
-- Add a small hook `useFocusHandoff()` that on mount reads `?focus=`, scrolls the matching `#gr-section-...` element into view (smooth, block: "center"), and applies a temporary glow class (`ring-2 ring-warm-link/60 animate-pulse` for ~3s, then removed). Toast a quiet line: "Start here — \<section label\>."
-
-### WelcomePage changes (`src/components/welcome/WelcomePage.tsx`)
-
-- Replace `stage` machine with a `messages: Message[]` thread + `pending: boolean`.
-- Render messages as a chat (assistant bubbles + user bubbles), keeping the existing Ghibli card styling for the assistant.
-- After each assistant message: render its `chips` as tap-to-send buttons + the free-text reply box.
-- Each user reply calls `welcome-coach` with the full `history` + `turn` count.
-- When the response is `kind: "route"`, show the final assistant line briefly (~900ms), persist the set (existing `getOrCreateTodaySet` flow), then `navigate({ to, search: { intention, dedicatedTo, focus: section } })`.
-- For `assembly` route, navigate to `/assembly/$setId` with `search: { focus }`.
-- Keep the four pillar cards visible at the bottom as **"skip the chat — take me there"** shortcuts (current behaviour).
-
-### Conversation safety
-
-- Hard cap: 5 assistant turns. If the AI tries a 6th `ask_followup`, the client ignores chips and forces a route call with `turn=99` so the system prompt commits.
-- Server-side validation: clamp `history.length` to last 12 messages, intention 500 chars, each user reply 500 chars.
+### Cross-pillar entry point
+- Add a tiny **"Back to today's intention"** link inside the existing Home button menu: when the user is on a pillar page and a conversation exists, the home button gets a subtle dot indicator. Clicking still goes to `/welcome`, where the resumed thread now waits for them.
 
 ---
 
-## Files touched
+## 2. Top ribbon (no more overlap with page titles)
+
+### New layout primitive
+- Create `src/components/layout/TopRibbon.tsx`: a real, in-flow `<div>` (NOT `fixed`) that hosts the Pillar Taxi (centered) and the Home button (right). It sits at the top of the main column with a fixed height (`h-12`) and a subtle backdrop blur.
+- Update `src/components/layout/AppShell.tsx`:
+  - On non-welcome routes, render `<TopRibbon />` above `<main>` instead of mounting `PillarTaxi` and `HomeButton` as `fixed` overlays.
+  - Keep the welcome route's existing absolute logo/theme-toggle header unchanged.
+
+### Component changes
+- `PillarTaxi.tsx`: remove the outer `pointer-events-none fixed inset-x-0 top-3 z-40 flex justify-center px-4` wrapper; export only the pill itself so `TopRibbon` can place it.
+- `HomeButton.tsx`: remove the `fixed right-4 top-3 z-50` wrapper; export the button so `TopRibbon` can place it on the right.
+- Leave the welcome page's logo (top-left, absolute) untouched — `TopRibbon` only mounts on pillar routes.
+
+### Result
+The ribbon takes its own row, so pillar headers (Assembly's "Untitled set" / track count chip, Library's titles, Beatmaker, Mastering) sit cleanly below it with no overlap on a 714-wide viewport.
+
+---
+
+## 3. Remove the engine debug HUD
+
+In `src/routes/_app.assembly.tsx`:
+- Delete the `debugOpen` state, the `<DebugHUD ... />` block, the toggle button, and the entire `DebugHUD` component + `Row` helper.
+- Remove the now-unused `Bug` and `X` lucide imports if nothing else uses them.
+- Remove the `console.log("[engine] …")` lines (keep `console.error` for real failures).
+
+This is a UI-only cleanup; the audio engine itself stays intact.
+
+---
+
+## Files
 
 **New**
-- `src/components/layout/HomeButton.tsx`
-- `src/hooks/useFocusHandoff.ts`
+- `src/components/layout/TopRibbon.tsx`
+- Migration: `coach_conversations` table + RLS + trigger.
 
 **Edited**
-- `src/components/layout/AppShell.tsx` — mount `HomeButton` next to `PillarTaxi`
-- `src/components/welcome/WelcomePage.tsx` — multi-turn chat thread
-- `supabase/functions/welcome-coach/index.ts` — new `converse` action, two-tool design
-- `src/utils/intention.ts` — add `focus` search param
-- `src/routes/_app.beatmaker.tsx` — remove Back btn, add section IDs, call `useFocusHandoff`
-- `src/routes/_app.library.tsx` — same
-- `src/routes/_app.assembly.tsx` — same (section IDs around `IntentionPin`, `SourcesPanel`, `TransitionMap`, `CoPilotPanel`)
-- `src/routes/_app.assembly.$setId.tsx` — remove Back btn, call `useFocusHandoff`
-- `src/routes/_app.mastering.tsx` — remove Back btn, add section IDs, call hook
-- `src/routes/_app.about.tsx`, `src/routes/_app.journal.tsx` — remove Back btn
+- `src/components/welcome/WelcomePage.tsx` — load/save conversation, "welcome back" banner, continue/keep-talking actions, restart link.
+- `supabase/functions/welcome-coach/index.ts` — resumed-conversation prompt branch, extra turns on resume.
+- `src/components/layout/AppShell.tsx` — mount `TopRibbon` instead of fixed overlays.
+- `src/components/layout/PillarTaxi.tsx` — drop fixed wrapper.
+- `src/components/layout/HomeButton.tsx` — drop fixed wrapper; optional unread-dot when a conversation exists.
+- `src/routes/_app.assembly.tsx` — remove DebugHUD + related state/imports/logs.
 
 ---
 
-## Open question (one only)
+## Open question
 
-**Should the conversation thread persist across page reloads of `/welcome`** (saved in localStorage so a refresh keeps the chat going), or always start fresh on each visit? My default is **always fresh** — the welcome screen is meant to be a calm new beginning each time. Tell me if you'd rather persist.
+When the user clicks **"Start a new intention"** on `/welcome`, should we:
+- (a) Archive the old conversation and create a brand-new `today's set`, or
+- (b) Keep the same `set` and just clear the chat thread (intention/dedication get rewritten on the same set)?
+
+Default: **(b)** — one set per day stays intact; only the conversation resets. Confirm or override after approval.
