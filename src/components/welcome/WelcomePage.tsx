@@ -516,6 +516,49 @@ export function WelcomePage() {
                 transition={{ duration: 0.5, ease: "easeOut" }}
                 className="mt-6 space-y-3 text-left"
               >
+                {/* Welcome-back banner when we restored a saved conversation */}
+                {showResumeBanner && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="rounded-2xl border border-warm-link/40 bg-warm-link/10 px-4 py-3 backdrop-blur-sm"
+                  >
+                    <p className="font-display text-sm italic text-foreground/90">
+                      Welcome back. We left off here{lastPillar ? ` — in the ${lastPillar}` : ""}.
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {lastPillar && (
+                        <button
+                          type="button"
+                          onClick={continueWhereLeftOff}
+                          disabled={routing}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-warm-link/25 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-warm-link/40 disabled:opacity-50"
+                        >
+                          <ArrowRight className="h-3 w-3" />
+                          Continue where we left off
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={keepTalking}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/40 px-3 py-1 text-xs text-foreground/85 transition-colors hover:border-warm-link hover:text-foreground"
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        Keep talking
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void restart()}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border/40 px-3 py-1 text-[11px] text-muted-foreground/80 transition-colors hover:border-warm-link/60 hover:text-foreground"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        Start a new intention
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
                 {messages.map((m, i) => (
                   <ChatBubble
                     key={i}
