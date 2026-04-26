@@ -192,8 +192,14 @@ const STYLES: Style[] = [
 ];
 
 function BeatmakerPage() {
-  const { intention, dedicatedTo } = Route.useSearch();
+  const { intention, dedicatedTo, focus } = Route.useSearch();
   const navigate = useNavigate();
+  useFocusHandoff(focus, {
+    pads: "the pads — tap to place sounds",
+    tempo: "the tempo dial",
+    pattern: "the pattern row",
+    "send-to-set": "send your beat into the set",
+  });
   const [styleId, setStyleId] = useState<string>(STYLES[0].id);
   const [pattern, setPattern] = useState<boolean[][]>(() => stylePattern(STYLES[0]));
   const [playing, setPlaying] = useState(false);
