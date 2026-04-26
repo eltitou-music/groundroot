@@ -398,6 +398,7 @@ function BeatmakerPage() {
 
         {/* Transport */}
         <motion.div
+          id="gr-section-tempo"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.35 }}
@@ -498,6 +499,7 @@ function BeatmakerPage() {
 
           {/* Send to Assembly — primary hand-off */}
           <button
+            id="gr-section-send-to-set"
             onClick={sendToAssembly}
             disabled={sending}
             className="ml-auto inline-flex h-11 items-center gap-1.5 rounded-full bg-warm-link px-4 text-xs uppercase tracking-[0.18em] text-background transition-opacity hover:opacity-90 disabled:opacity-50"
@@ -510,6 +512,7 @@ function BeatmakerPage() {
 
         {/* Grid */}
         <motion.div
+          id="gr-section-pattern"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.45 }}
