@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { zodValidator } from "@tanstack/zod-adapter";
 import { intentionSearchSchema } from "@/utils/intention";
 import { ensureSetForRender, publishMaster, synthesizePreviewWav } from "@/utils/share";
+import { renderSetMaster } from "@/utils/render";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/mastering")({
@@ -45,13 +46,31 @@ function MasteringPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [renderStage, setRenderStage] = useState<string>("");
 
   const handlePublish = async () => {
     if (publishing) return;
     setPublishing(true);
+    setRenderStage("Preparing set…");
     try {
       const setId = await ensureSetForRender(intention, dedicatedTo);
-      const wav = synthesizePreviewWav({ lufs, width, glue });
+      // Try the real Assembly stitcher first; fall back to the synth preview
+      // if the set has no decodable tracks yet.
+      let wav: Blob | null = null;
+      try {
+        wav = await renderSetMaster(
+          setId,
+          { lufs, low, mid, high, width, glue },
+          (msg) => setRenderStage(msg),
+        );
+      } catch (renderErr) {
+        console.warn("[mastery] real render failed, using preview synth", renderErr);
+      }
+      if (!wav) {
+        setRenderStage("No tracks yet — rendering preview…");
+        wav = synthesizePreviewWav({ lufs, width, glue });
+      }
+      setRenderStage("Uploading…");
       const { shareUrl } = await publishMaster(setId, wav);
       toast.success("Shared. Link copied.", {
         action: { label: "Open", onClick: () => window.open(shareUrl, "_blank") },
@@ -62,6 +81,7 @@ function MasteringPage() {
       toast.error("Couldn't render & share. Please try again.");
     } finally {
       setPublishing(false);
+      setRenderStage("");
     }
   };
 
@@ -362,7 +382,7 @@ function MasteringPage() {
             title="Render the master, publish it, and copy a share link"
           >
             {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Share2 className="h-3.5 w-3.5" />}
-            {publishing ? "Rendering…" : "Render & share"}
+            {publishing ? (renderStage || "Rendering…") : "Render & share"}
           </button>
         </motion.div>
 
