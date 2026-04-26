@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, type PointerEvent } from "react";
 import {
   Play,
   Pause,
@@ -12,11 +12,16 @@ import {
   ZoomOut,
   Magnet,
   ArrowRight,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { zodValidator } from "@tanstack/zod-adapter";
 import { intentionSearchSchema } from "@/utils/intention";
+import { ensureUserId, findTodaySet } from "@/utils/today-set";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/assembly")({
   validateSearch: zodValidator(intentionSearchSchema),
