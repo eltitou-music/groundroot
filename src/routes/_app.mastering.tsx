@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { ChevronLeft, Sparkles, Play, Pause, Volume2, Sliders, Maximize2, Layers, Share2, Loader2 } from "lucide-react";
+import { Sparkles, Play, Pause, Volume2, Sliders, Maximize2, Layers, Share2, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Slider } from "@/components/ui/slider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -10,6 +10,7 @@ import { intentionSearchSchema } from "@/utils/intention";
 import { ensureSetForRender, publishMaster, synthesizePreviewWav } from "@/utils/share";
 import { renderSetMaster } from "@/utils/render";
 import { toast } from "sonner";
+import { useFocusHandoff } from "@/hooks/useFocusHandoff";
 
 export const Route = createFileRoute("/_app/mastering")({
   validateSearch: zodValidator(intentionSearchSchema),
@@ -32,8 +33,14 @@ const PRESETS = [
 ] as const;
 
 function MasteringPage() {
-  const { intention, dedicatedTo } = Route.useSearch();
+  const { intention, dedicatedTo, focus } = Route.useSearch();
   const navigate = useNavigate();
+  useFocusHandoff(focus, {
+    loudness: "the loudness target",
+    eq: "the EQ controls",
+    render: "the render & share button",
+    share: "the render & share button",
+  });
   const [lufs, setLufs] = useState(-14);
   const [low, setLow] = useState(0);
   const [mid, setMid] = useState(0);
@@ -205,15 +212,6 @@ function MasteringPage() {
   return (
     <div className="relative flex min-h-[calc(100vh-4rem)] flex-col items-center px-4 py-20 md:px-6">
       <div className="mx-auto w-full max-w-4xl">
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/welcome" })}
-          className="mb-10 inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-warm-link/70 transition-opacity hover:opacity-100"
-        >
-          <ChevronLeft className="h-3 w-3" />
-          Back
-        </button>
-
         <motion.h1
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
@@ -242,6 +240,7 @@ function MasteringPage() {
 
         {/* Effects rail — at the top */}
         <motion.div
+          id="gr-section-eq"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
@@ -250,6 +249,7 @@ function MasteringPage() {
           <p className="px-3 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Effects</p>
 
           <EffectChip
+            id="gr-section-loudness"
             icon={<Volume2 className="h-3.5 w-3.5" />}
             label="Loudness"
             value={`${lufs} LUFS`}
@@ -376,6 +376,7 @@ function MasteringPage() {
           </div>
 
           <button
+            id="gr-section-render"
             onClick={handlePublish}
             disabled={publishing}
             className="inline-flex items-center justify-center gap-2 rounded-full bg-warm-link px-5 py-3 text-xs uppercase tracking-[0.18em] text-background transition-all hover:scale-[1.02] disabled:opacity-60"
