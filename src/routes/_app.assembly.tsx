@@ -585,8 +585,7 @@ function AssemblyWorkspace() {
 
 function TransportBar(props: {
   playing: boolean;
-  onPlay: () => void;
-  onPause: () => void;
+  onPlayToggle: () => void;
   onStop: () => void;
   onSkipBack: () => void;
   onSkipForward: () => void;
@@ -597,11 +596,14 @@ function TransportBar(props: {
   setPxPerSec: (v: number) => void;
   snap: boolean;
   setSnap: (v: boolean) => void;
+  muted: boolean;
+  onToggleMute: () => void;
+  hasAudio: boolean;
+  loading: boolean;
 }) {
   const {
     playing,
-    onPlay,
-    onPause,
+    onPlayToggle,
     onStop,
     onSkipBack,
     onSkipForward,
@@ -612,6 +614,10 @@ function TransportBar(props: {
     setPxPerSec,
     snap,
     setSnap,
+    muted,
+    onToggleMute,
+    hasAudio,
+    loading,
   } = props;
 
   const Btn = ({
@@ -648,15 +654,13 @@ function TransportBar(props: {
         <Btn label="Skip to start" onClick={onSkipBack}>
           <SkipBack className="h-4 w-4" />
         </Btn>
-        {playing ? (
-          <Btn label="Pause" onClick={onPause} active>
-            <Pause className="h-4 w-4" />
-          </Btn>
-        ) : (
-          <Btn label="Play" onClick={onPlay}>
-            <Play className="h-4 w-4" />
-          </Btn>
-        )}
+        <Btn
+          label={playing ? "Pause" : "Play"}
+          onClick={onPlayToggle}
+          active={playing}
+        >
+          {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+        </Btn>
         <Btn label="Stop" onClick={onStop}>
           <Square className="h-4 w-4" />
         </Btn>
@@ -666,12 +670,27 @@ function TransportBar(props: {
         <Btn label="Record" onClick={() => {}} danger>
           <Circle className="h-4 w-4" />
         </Btn>
+        <Btn
+          label={muted ? "Unmute" : "Mute"}
+          onClick={onToggleMute}
+          active={muted}
+        >
+          {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        </Btn>
       </div>
 
       <div className="ml-2 flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 font-mono text-sm tabular-nums">
         <span className="text-primary">{fmtTime(playhead)}</span>
         <span className="text-muted-foreground/50">/</span>
         <span className="text-muted-foreground">{fmtTime(TOTAL_SECONDS)}</span>
+      </div>
+
+      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+        {loading
+          ? "Loading audio…"
+          : hasAudio
+            ? "Live audio"
+            : "Visual only — add tracks to your set to hear playback"}
       </div>
 
       <div className="ml-auto flex items-center gap-4">
