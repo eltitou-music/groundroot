@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { RootSystem } from "@/components/welcome/RootSystem";
 import { findTodaySet, getOrCreateTodaySet, ensureUserId } from "@/utils/today-set";
+import { isCoachStateFresh, type StoredCoachState } from "@/utils/coach-state";
 
 type Pillar = "beatmaker" | "library" | "assembly" | "mastering";
 
@@ -97,21 +98,25 @@ export function WelcomePage() {
         // Pull the saved coach_state, if any
         const { data: stateRow } = await supabase
           .from("sets")
-          .select("coach_state")
+          .select("coach_state, updated_at")
           .eq("id", today.id)
           .maybeSingle();
         if (cancelled) return;
-        const cs = (stateRow?.coach_state ?? null) as {
-          messages?: ChatMsg[];
-          lastPillar?: Pillar | null;
-          lastSection?: string | null;
-        } | null;
-        if (cs && Array.isArray(cs.messages) && cs.messages.length > 0) {
-          setMessages(cs.messages);
+        const cs = (stateRow?.coach_state ?? null) as StoredCoachState;
+        const fresh = isCoachStateFresh(cs, stateRow?.updated_at ?? null);
+        if (fresh && cs && Array.isArray(cs.messages) && cs.messages.length > 0) {
+          setMessages(cs.messages as ChatMsg[]);
           setLastPillar(cs.lastPillar ?? null);
           setLastSection(cs.lastSection ?? null);
           setResumed(true);
           setShowResumeBanner(true);
+        } else if (cs && Array.isArray(cs.messages) && cs.messages.length > 0) {
+          // Conversation exists but is stale — clear it so the Home dot and
+          // resume banner don't keep nudging the user about old context.
+          await supabase
+            .from("sets")
+            .update({ coach_state: {} })
+            .eq("id", today.id);
         }
       } catch { /* ignore */ }
     });
