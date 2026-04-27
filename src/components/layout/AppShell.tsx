@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation } from "@tanstack/react-router";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { TopRibbon } from "@/components/layout/TopRibbon";
+import { CoachExpirySettings } from "@/components/welcome/CoachExpirySettings";
 import logo from "@/assets/groundroot-logo.png";
 
 export function AppShell() {
@@ -22,7 +23,8 @@ export function AppShell() {
               GroundRoot
             </span>
           </Link>
-          <div className="pointer-events-auto">
+          <div className="pointer-events-auto flex items-center gap-2">
+            <CoachExpirySettings />
             <ThemeToggle />
           </div>
         </header>
