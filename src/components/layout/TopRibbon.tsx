@@ -3,6 +3,11 @@ import { useLocation } from "@tanstack/react-router";
 import { PillarTaxi } from "@/components/layout/PillarTaxi";
 import { HomeButton } from "@/components/layout/HomeButton";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  coachStaleCutoffIso,
+  isCoachStateFresh,
+  type StoredCoachState,
+} from "@/utils/coach-state";
 
 /**
  * The TopRibbon is an in-flow strip that sits above every pillar page.
@@ -24,21 +29,18 @@ export function TopRibbon() {
       const { data: sess } = await supabase.auth.getSession();
       const uid = sess.session?.user.id;
       if (!uid) return;
-      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const since = coachStaleCutoffIso();
       const { data } = await supabase
         .from("sets")
-        .select("coach_state")
+        .select("coach_state, updated_at")
         .eq("user_id", uid)
         .gte("updated_at", since)
         .order("updated_at", { ascending: false })
         .limit(1);
       if (cancelled) return;
-      const state = (data?.[0]?.coach_state ?? null) as
-        | { messages?: unknown[] }
-        | null;
-      setHasResumeable(
-        !!state && Array.isArray(state.messages) && state.messages.length > 0,
-      );
+      const row = data?.[0];
+      const state = (row?.coach_state ?? null) as StoredCoachState;
+      setHasResumeable(isCoachStateFresh(state, row?.updated_at ?? null));
     })();
     return () => {
       cancelled = true;
