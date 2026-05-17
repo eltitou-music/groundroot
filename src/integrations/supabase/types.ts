@@ -334,6 +334,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_public_set: {
+        Args: { _set_id: string }
+        Returns: {
+          dedicated_to: string
+          id: string
+          intention: string
+          title: string
+          view_count: number
+        }[]
+      }
       increment_set_view: { Args: { _set_id: string }; Returns: undefined }
     }
     Enums: {
