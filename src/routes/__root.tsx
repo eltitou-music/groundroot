@@ -32,14 +32,14 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "GroundRoot — Where every set takes root" },
+      { title: "GroundRoot - From intention to expression" },
       {
         name: "description",
         content:
           "GroundRoot — Where every set takes root. A calm, AI-assisted studio to sequence, shape, and master sets with intention.",
       },
       { name: "author", content: "GroundRoot" },
-      { property: "og:title", content: "GroundRoot — Where every set takes root" },
+      { property: "og:title", content: "GroundRoot - From intention to expression" },
       {
         property: "og:description",
         content: "Where every set takes root. Sequence, shape, master.",
@@ -47,6 +47,12 @@ export const Route = createRootRoute({
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "GroundRoot - From intention to expression" },
+      { name: "description", content: "Groundroot.org helps DJs prepare and build sets with a fluid, intuitive workflow." },
+      { property: "og:description", content: "Groundroot.org helps DJs prepare and build sets with a fluid, intuitive workflow." },
+      { name: "twitter:description", content: "Groundroot.org helps DJs prepare and build sets with a fluid, intuitive workflow." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/entfXgzQmegKp6hrbNLK96l82Fj2/social-images/social-1779058490020-Capture_d_écran_2026-04-24_092322.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/entfXgzQmegKp6hrbNLK96l82Fj2/social-images/social-1779058490020-Capture_d_écran_2026-04-24_092322.webp" },
     ],
     links: [
       {
