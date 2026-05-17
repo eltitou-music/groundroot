@@ -17,13 +17,11 @@ type ShareData = {
 };
 
 async function loadShareData(setId: string): Promise<ShareData> {
-  const { data: setRow, error: setErr } = await supabase
-    .from("sets")
-    .select("id, title, intention, dedicated_to, view_count, is_public")
-    .eq("id", setId)
-    .maybeSingle();
+  const { data: rows, error: setErr } = await supabase
+    .rpc("get_public_set", { _set_id: setId });
   if (setErr) throw setErr;
-  if (!setRow || !setRow.is_public) throw notFound();
+  const setRow = Array.isArray(rows) ? rows[0] : rows;
+  if (!setRow) throw notFound();
 
   const { data: renderRow } = await supabase
     .from("set_renders")
@@ -36,12 +34,28 @@ async function loadShareData(setId: string): Promise<ShareData> {
   // Fire-and-forget view bump
   void supabase.rpc("increment_set_view", { _set_id: setId });
 
+  // Convert stored public URL into a signed URL for the now-private bucket
+  let wavUrl: string | null = null;
+  if (renderRow?.wav_url) {
+    const marker = "/masters/";
+    const idx = renderRow.wav_url.indexOf(marker);
+    if (idx >= 0) {
+      const objectPath = renderRow.wav_url.slice(idx + marker.length);
+      const { data: signed } = await supabase.storage
+        .from("masters")
+        .createSignedUrl(objectPath, 60 * 60);
+      wavUrl = signed?.signedUrl ?? null;
+    } else {
+      wavUrl = renderRow.wav_url;
+    }
+  }
+
   return {
     setId: setRow.id,
     title: setRow.title,
     intention: setRow.intention,
     dedicatedTo: setRow.dedicated_to,
-    wavUrl: renderRow?.wav_url ?? null,
+    wavUrl,
     renderedAt: renderRow?.rendered_at ?? null,
     viewCount: setRow.view_count ?? 0,
   };
