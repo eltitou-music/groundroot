@@ -429,7 +429,7 @@ export function WelcomePage() {
           className="mt-4 flex flex-col items-center"
         >
           <p className="font-display text-base italic text-foreground/80 md:text-lg">
-            A place to plant something for someone.
+            From Intention to Expression… &amp; Release :)
           </p>
           <span aria-hidden className="mt-1 block h-px w-32 bg-foreground/40" />
         </motion.div>
