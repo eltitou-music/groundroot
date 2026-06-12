@@ -15,6 +15,7 @@ import { zodValidator } from "@tanstack/zod-adapter";
 import { intentionSearchSchema } from "@/utils/intention";
 import { handoffToAssembly } from "@/utils/handoff";
 import { useFocusHandoff } from "@/hooks/useFocusHandoff";
+import { MyTracksUploader } from "@/components/library/MyTracksUploader";
 
 export const Route = createFileRoute("/_app/library")({
   validateSearch: zodValidator(intentionSearchSchema),
@@ -148,6 +149,8 @@ function LibraryPage() {
         >
           A library that grows from the open web — public-domain recordings, Creative Commons releases, and netlabels, all surfaced for you.
         </motion.p>
+
+        <MyTracksUploader />
 
         {/* Mode chooser */}
         {mode === "choose" && !tracks && (
