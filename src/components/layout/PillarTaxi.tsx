@@ -12,13 +12,10 @@ import { supabase } from "@/integrations/supabase/client";
  */
 
 const PILLARS = [
-  { to: "/beatmaker", label: "Beatmaker" },
   { to: "/library",   label: "Library" },
   { to: "/assembly",  label: "Assembly" },
   { to: "/mastering", label: "Mastery" },
 ] as const;
-
-type PillarPath = (typeof PILLARS)[number]["to"];
 
 function matchedPillarIndex(pathname: string): number {
   return PILLARS.findIndex((p) => pathname.startsWith(p.to));
@@ -67,11 +64,13 @@ export function PillarTaxi() {
 
   const go = (delta: 1 | -1) => {
     const next = (idx + delta + PILLARS.length) % PILLARS.length;
-    const target = PILLARS[next].to as PillarPath;
-    navigate({
-      to: target,
-      search: carrySearch,
-    });
+    const target = PILLARS[next].to;
+    if (target === "/assembly") {
+      if (!todaySetId) return;
+      navigate({ to: "/assembly/$setId", params: { setId: todaySetId } });
+      return;
+    }
+    navigate({ to: target, search: carrySearch });
   };
 
   return (
