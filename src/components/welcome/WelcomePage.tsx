@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { useNavigate, Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { HelpCircle, Sprout, BookHeart, Loader2, ArrowRight, Sparkles, RotateCcw } from "lucide-react";
+import { Sprout, Loader2, ArrowRight, Sparkles, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -9,16 +9,15 @@ import { RootSystem } from "@/components/welcome/RootSystem";
 import { findTodaySet, getOrCreateTodaySet, ensureUserId } from "@/utils/today-set";
 import { isCoachStateFresh, type StoredCoachState } from "@/utils/coach-state";
 
-type Pillar = "beatmaker" | "library" | "assembly" | "mastering";
+type Pillar = "library" | "assembly" | "mastering";
 
 type Destination = {
   label: string;
   hint: string;
-  to: "/beatmaker" | "/library" | "/assembly" | "/mastering";
+  to: "/library" | "/assembly" | "/mastering";
 };
 
 const destinations: Destination[] = [
-  { label: "Beatmaker", hint: "play a rhythm", to: "/beatmaker" },
   { label: "Library", hint: "find sounds", to: "/library" },
   { label: "Assembly", hint: "build a set", to: "/assembly" },
   { label: "Mastery", hint: "polish the finish", to: "/mastering" },
@@ -200,9 +199,7 @@ export function WelcomePage() {
         });
       } else {
         navigate({
-          to: pillar === "beatmaker" ? "/beatmaker"
-             : pillar === "library" ? "/library"
-             : "/mastering",
+          to: pillar === "library" ? "/library" : "/mastering",
           search: Object.keys(search).length > 0 ? search : undefined,
         });
       }
@@ -303,6 +300,10 @@ export function WelcomePage() {
 
   /* ----- Skip the chat — quick pillar shortcut ----- */
   const goToPillar = (to: Destination["to"]) => {
+    if (to === "/assembly") {
+      void persistAndGo("assembly");
+      return;
+    }
     const finalIntention = intention.trim();
     const finalDedication = dedicatedTo.trim();
     const search: { intention?: string; dedicatedTo?: string } = {};
@@ -696,22 +697,6 @@ export function WelcomePage() {
               </span>
             </button>
           ))}
-          <Link
-            to="/about"
-            aria-label="About GroundRoot"
-            className="ml-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-warm-link/40 text-warm-link transition-colors hover:border-warm-link hover:bg-warm-link/10"
-            title="About GroundRoot"
-          >
-            <HelpCircle className="h-3.5 w-3.5" />
-          </Link>
-          <Link
-            to="/journal"
-            aria-label="Open journal"
-            className="ml-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-warm-link/40 text-warm-link transition-colors hover:border-warm-link hover:bg-warm-link/10"
-            title="Journal — what landed"
-          >
-            <BookHeart className="h-3.5 w-3.5" />
-          </Link>
         </motion.div>
       </div>
 
