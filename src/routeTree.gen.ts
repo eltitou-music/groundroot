@@ -20,7 +20,7 @@ import { Route as AppBeatmakerRouteImport } from './routes/_app.beatmaker'
 import { Route as AppAssemblyRouteImport } from './routes/_app.assembly'
 import { Route as AppAboutRouteImport } from './routes/_app.about'
 import { Route as AppShareSetIdRouteImport } from './routes/_app.share.$setId'
-import { Route as AppAssemblySetIdRouteImport } from './routes/_app.assembly.$setId'
+import { Route as AppAssemblySetIdRouteImport } from './routes/_app.assembly_.$setId'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -77,15 +77,15 @@ const AppShareSetIdRoute = AppShareSetIdRouteImport.update({
   getParentRoute: () => AppRoute,
 } as any)
 const AppAssemblySetIdRoute = AppAssemblySetIdRouteImport.update({
-  id: '/$setId',
-  path: '/$setId',
-  getParentRoute: () => AppAssemblyRoute,
+  id: '/assembly_/$setId',
+  path: '/assembly/$setId',
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/about': typeof AppAboutRoute
-  '/assembly': typeof AppAssemblyRouteWithChildren
+  '/assembly': typeof AppAssemblyRoute
   '/beatmaker': typeof AppBeatmakerRoute
   '/journal': typeof AppJournalRoute
   '/library': typeof AppLibraryRoute
@@ -97,7 +97,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/about': typeof AppAboutRoute
-  '/assembly': typeof AppAssemblyRouteWithChildren
+  '/assembly': typeof AppAssemblyRoute
   '/beatmaker': typeof AppBeatmakerRoute
   '/journal': typeof AppJournalRoute
   '/library': typeof AppLibraryRoute
@@ -112,7 +112,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_app/about': typeof AppAboutRoute
-  '/_app/assembly': typeof AppAssemblyRouteWithChildren
+  '/_app/assembly': typeof AppAssemblyRoute
   '/_app/beatmaker': typeof AppBeatmakerRoute
   '/_app/journal': typeof AppJournalRoute
   '/_app/library': typeof AppLibraryRoute
@@ -120,7 +120,7 @@ export interface FileRoutesById {
   '/_app/welcome': typeof AppWelcomeRoute
   '/spotify/callback': typeof SpotifyCallbackRoute
   '/_app/': typeof AppIndexRoute
-  '/_app/assembly/$setId': typeof AppAssemblySetIdRoute
+  '/_app/assembly_/$setId': typeof AppAssemblySetIdRoute
   '/_app/share/$setId': typeof AppShareSetIdRoute
 }
 export interface FileRouteTypes {
@@ -162,7 +162,7 @@ export interface FileRouteTypes {
     | '/_app/welcome'
     | '/spotify/callback'
     | '/_app/'
-    | '/_app/assembly/$setId'
+    | '/_app/assembly_/$setId'
     | '/_app/share/$setId'
   fileRoutesById: FileRoutesById
 }
@@ -250,49 +250,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppShareSetIdRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/assembly/$setId': {
-      id: '/_app/assembly/$setId'
-      path: '/$setId'
+    '/_app/assembly_/$setId': {
+      id: '/_app/assembly_/$setId'
+      path: '/assembly/$setId'
       fullPath: '/assembly/$setId'
       preLoaderRoute: typeof AppAssemblySetIdRouteImport
-      parentRoute: typeof AppAssemblyRoute
+      parentRoute: typeof AppRoute
     }
   }
 }
 
-interface AppAssemblyRouteChildren {
-  AppAssemblySetIdRoute: typeof AppAssemblySetIdRoute
-}
-
-const AppAssemblyRouteChildren: AppAssemblyRouteChildren = {
-  AppAssemblySetIdRoute: AppAssemblySetIdRoute,
-}
-
-const AppAssemblyRouteWithChildren = AppAssemblyRoute._addFileChildren(
-  AppAssemblyRouteChildren,
-)
-
 interface AppRouteChildren {
   AppAboutRoute: typeof AppAboutRoute
-  AppAssemblyRoute: typeof AppAssemblyRouteWithChildren
+  AppAssemblyRoute: typeof AppAssemblyRoute
   AppBeatmakerRoute: typeof AppBeatmakerRoute
   AppJournalRoute: typeof AppJournalRoute
   AppLibraryRoute: typeof AppLibraryRoute
   AppMasteringRoute: typeof AppMasteringRoute
   AppWelcomeRoute: typeof AppWelcomeRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppAssemblySetIdRoute: typeof AppAssemblySetIdRoute
   AppShareSetIdRoute: typeof AppShareSetIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAboutRoute: AppAboutRoute,
-  AppAssemblyRoute: AppAssemblyRouteWithChildren,
+  AppAssemblyRoute: AppAssemblyRoute,
   AppBeatmakerRoute: AppBeatmakerRoute,
   AppJournalRoute: AppJournalRoute,
   AppLibraryRoute: AppLibraryRoute,
   AppMasteringRoute: AppMasteringRoute,
   AppWelcomeRoute: AppWelcomeRoute,
   AppIndexRoute: AppIndexRoute,
+  AppAssemblySetIdRoute: AppAssemblySetIdRoute,
   AppShareSetIdRoute: AppShareSetIdRoute,
 }
 
