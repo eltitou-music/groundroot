@@ -19,7 +19,7 @@ export type SetRow = Tables<"sets">;
 export type TrackRow = Tables<"tracks">;
 
 function AssemblyPage() {
-  const { setId } = useParams({ from: "/_app/assembly/$setId" });
+  const { setId } = useParams({ from: "/_app/assembly_/$setId" });
   const search = useSearch({ strict: false }) as { focus?: string };
   useFocusHandoff(search.focus, {
     "intention-pin": "your intention",
