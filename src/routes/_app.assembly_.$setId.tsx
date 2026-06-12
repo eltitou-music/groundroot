@@ -11,7 +11,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { useFocusHandoff } from "@/hooks/useFocusHandoff";
 
-export const Route = createFileRoute("/_app/assembly/$setId")({
+export const Route = createFileRoute("/_app/assembly_/$setId")({
   component: AssemblyPage,
 });
 
