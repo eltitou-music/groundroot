@@ -105,7 +105,10 @@ export function WelcomePage() {
         const fresh = isCoachStateFresh(cs, stateRow?.updated_at ?? null);
         if (fresh && cs && Array.isArray(cs.messages) && cs.messages.length > 0) {
           setMessages(cs.messages as ChatMsg[]);
-          setLastPillar(cs.lastPillar ?? null);
+          const lp = cs.lastPillar;
+          setLastPillar(
+            lp === "library" || lp === "assembly" || lp === "mastering" ? lp : null,
+          );
           setLastSection(cs.lastSection ?? null);
           setResumed(true);
           setShowResumeBanner(true);
