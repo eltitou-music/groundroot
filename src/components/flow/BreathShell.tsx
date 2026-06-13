@@ -45,7 +45,13 @@ export function BreathShell({ stage, children }: { stage: StageKey; children: Re
           className="flex shrink-0 items-center gap-2 opacity-80 transition-opacity hover:opacity-100"
           title="Back to the start"
         >
-          <img src={logo} alt="GroundRoot" className="h-7 w-7 object-contain" width={28} height={28} />
+          <img
+            src={logo}
+            alt="GroundRoot"
+            className="h-7 w-7 object-contain"
+            width={28}
+            height={28}
+          />
         </Link>
 
         <BreathDots stageIdx={stageIdx} setId={setRow.id} />
@@ -231,7 +237,15 @@ export function StageCta({
 
 /* ----- Quiet back link to the previous stage ----- */
 
-export function StageBack({ to, setId, label }: { to: Exclude<StageKey, "welcome">; setId: string; label: string }) {
+export function StageBack({
+  to,
+  setId,
+  label,
+}: {
+  to: Exclude<StageKey, "welcome">;
+  setId: string;
+  label: string;
+}) {
   return (
     <Link
       to={`/set/$setId/${STAGE_PATH[to]}` as string}

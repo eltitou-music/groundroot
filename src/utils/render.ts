@@ -23,7 +23,29 @@ export type MasterSettings = {
 };
 
 const SR = 44100;
-const CROSSFADE_SEC = 2;
+/** One long breath between tracks — the live player (S3) and the offline
+ * render (S4) share this so what you hear is what you export. */
+export const CROSSFADE_SEC = 6;
+
+/**
+ * Shared timeline math: where each track starts when joined with equal-power
+ * crossfades, and the total set length. Used by both the live player and the
+ * offline render so the single set-wide progress bar always agrees.
+ */
+export function computeTimeline(
+  durations: number[],
+  fadeSec: number = CROSSFADE_SEC,
+): { starts: number[]; total: number } {
+  const starts: number[] = [];
+  let cursor = 0;
+  for (let i = 0; i < durations.length; i++) {
+    starts.push(cursor);
+    const dur = durations[i];
+    const advance = i === durations.length - 1 ? dur : Math.max(0.5, dur - fadeSec);
+    cursor += advance;
+  }
+  return { starts, total: cursor };
+}
 
 /** Pull every track on the set that has a playable upload_url, in arrangement order. */
 export async function loadSetAudioSources(setId: string): Promise<{ url: string; title: string }[]> {
@@ -164,8 +186,24 @@ export async function renderSetMaster(
   setId: string,
   settings: MasterSettings,
   onProgress?: (msg: string) => void,
+  sourcesOverride?: { url: string; title: string }[],
 ): Promise<Blob | null> {
-  const sources = await loadSetAudioSources(setId);
+  const buf = await renderSetMasterBuffer(setId, settings, onProgress, sourcesOverride);
+  return buf ? audioBufferToWav(buf) : null;
+}
+
+/**
+ * Same render, returned as the raw AudioBuffer so S5 can mp3-encode without
+ * re-rendering. `sourcesOverride` lets the flow pass its local track list
+ * (object URLs / same-origin demo crate) so rendering works offline.
+ */
+export async function renderSetMasterBuffer(
+  setId: string,
+  settings: MasterSettings,
+  onProgress?: (msg: string) => void,
+  sourcesOverride?: { url: string; title: string }[],
+): Promise<AudioBuffer | null> {
+  const sources = sourcesOverride ?? (await loadSetAudioSources(setId));
   if (sources.length === 0) return null;
 
   // Decode in a temporary online context first — OfflineAudioContext also
@@ -183,17 +221,10 @@ export async function renderSetMaster(
 
   if (decoded.length === 0) return null;
 
-  // Compute timeline with crossfades
+  // Compute timeline with crossfades (shared with the live player)
   const fade = CROSSFADE_SEC;
-  const starts: number[] = [];
-  let cursor = 0;
-  for (let i = 0; i < decoded.length; i++) {
-    starts.push(cursor);
-    const dur = decoded[i].duration;
-    const advance = i === decoded.length - 1 ? dur : Math.max(0.5, dur - fade);
-    cursor += advance;
-  }
-  const totalDur = cursor + 0.25; // small tail
+  const { starts, total } = computeTimeline(decoded.map((d) => d.duration), fade);
+  const totalDur = total + 0.25; // small tail
 
   onProgress?.("Rendering master…");
   const offline = new OfflineAudioContext({
@@ -209,8 +240,7 @@ export async function renderSetMaster(
     scheduleClip(offline, bus, decoded[i], starts[i], fadeIn, fadeOut);
   }
 
-  const rendered = await offline.startRendering();
-  return audioBufferToWav(rendered);
+  return await offline.startRendering();
 }
 
 /** Encode a stereo (or mono) AudioBuffer into a 16-bit PCM WAV Blob. */

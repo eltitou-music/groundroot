@@ -67,10 +67,7 @@ export async function addCrateToSet(
   }));
 
   try {
-    const { data, error } = await supabase
-      .from("tracks")
-      .insert(rows)
-      .select("*");
+    const { data, error } = await supabase.from("tracks").insert(rows).select("*");
     if (error) throw error;
     logEvent("demo_crate_added", { count: rows.length }, setId);
     return {

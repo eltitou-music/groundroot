@@ -18,6 +18,8 @@ import { Route as AppLibraryRouteImport } from './routes/_app.library'
 import { Route as AppShareSetIdRouteImport } from './routes/_app.share.$setId'
 import { Route as AppSetSetIdRouteImport } from './routes/_app.set.$setId'
 import { Route as AppAssemblySetIdRouteImport } from './routes/_app.assembly_.$setId'
+import { Route as AppSetSetIdPlayRouteImport } from './routes/_app.set.$setId.play'
+import { Route as AppSetSetIdOrderRouteImport } from './routes/_app.set.$setId.order'
 import { Route as AppSetSetIdDigRouteImport } from './routes/_app.set.$setId.dig'
 
 const AppRoute = AppRouteImport.update({
@@ -64,6 +66,16 @@ const AppAssemblySetIdRoute = AppAssemblySetIdRouteImport.update({
   path: '/assembly/$setId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSetSetIdPlayRoute = AppSetSetIdPlayRouteImport.update({
+  id: '/play',
+  path: '/play',
+  getParentRoute: () => AppSetSetIdRoute,
+} as any)
+const AppSetSetIdOrderRoute = AppSetSetIdOrderRouteImport.update({
+  id: '/order',
+  path: '/order',
+  getParentRoute: () => AppSetSetIdRoute,
+} as any)
 const AppSetSetIdDigRoute = AppSetSetIdDigRouteImport.update({
   id: '/dig',
   path: '/dig',
@@ -80,6 +92,8 @@ export interface FileRoutesByFullPath {
   '/set/$setId': typeof AppSetSetIdRouteWithChildren
   '/share/$setId': typeof AppShareSetIdRoute
   '/set/$setId/dig': typeof AppSetSetIdDigRoute
+  '/set/$setId/order': typeof AppSetSetIdOrderRoute
+  '/set/$setId/play': typeof AppSetSetIdPlayRoute
 }
 export interface FileRoutesByTo {
   '/library': typeof AppLibraryRoute
@@ -91,6 +105,8 @@ export interface FileRoutesByTo {
   '/set/$setId': typeof AppSetSetIdRouteWithChildren
   '/share/$setId': typeof AppShareSetIdRoute
   '/set/$setId/dig': typeof AppSetSetIdDigRoute
+  '/set/$setId/order': typeof AppSetSetIdOrderRoute
+  '/set/$setId/play': typeof AppSetSetIdPlayRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -104,6 +120,8 @@ export interface FileRoutesById {
   '/_app/set/$setId': typeof AppSetSetIdRouteWithChildren
   '/_app/share/$setId': typeof AppShareSetIdRoute
   '/_app/set/$setId/dig': typeof AppSetSetIdDigRoute
+  '/_app/set/$setId/order': typeof AppSetSetIdOrderRoute
+  '/_app/set/$setId/play': typeof AppSetSetIdPlayRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -117,6 +135,8 @@ export interface FileRouteTypes {
     | '/set/$setId'
     | '/share/$setId'
     | '/set/$setId/dig'
+    | '/set/$setId/order'
+    | '/set/$setId/play'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/library'
@@ -128,6 +148,8 @@ export interface FileRouteTypes {
     | '/set/$setId'
     | '/share/$setId'
     | '/set/$setId/dig'
+    | '/set/$setId/order'
+    | '/set/$setId/play'
   id:
     | '__root__'
     | '/_app'
@@ -140,6 +162,8 @@ export interface FileRouteTypes {
     | '/_app/set/$setId'
     | '/_app/share/$setId'
     | '/_app/set/$setId/dig'
+    | '/_app/set/$setId/order'
+    | '/_app/set/$setId/play'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -212,6 +236,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAssemblySetIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/set/$setId/play': {
+      id: '/_app/set/$setId/play'
+      path: '/play'
+      fullPath: '/set/$setId/play'
+      preLoaderRoute: typeof AppSetSetIdPlayRouteImport
+      parentRoute: typeof AppSetSetIdRoute
+    }
+    '/_app/set/$setId/order': {
+      id: '/_app/set/$setId/order'
+      path: '/order'
+      fullPath: '/set/$setId/order'
+      preLoaderRoute: typeof AppSetSetIdOrderRouteImport
+      parentRoute: typeof AppSetSetIdRoute
+    }
     '/_app/set/$setId/dig': {
       id: '/_app/set/$setId/dig'
       path: '/dig'
@@ -224,10 +262,14 @@ declare module '@tanstack/react-router' {
 
 interface AppSetSetIdRouteChildren {
   AppSetSetIdDigRoute: typeof AppSetSetIdDigRoute
+  AppSetSetIdOrderRoute: typeof AppSetSetIdOrderRoute
+  AppSetSetIdPlayRoute: typeof AppSetSetIdPlayRoute
 }
 
 const AppSetSetIdRouteChildren: AppSetSetIdRouteChildren = {
   AppSetSetIdDigRoute: AppSetSetIdDigRoute,
+  AppSetSetIdOrderRoute: AppSetSetIdOrderRoute,
+  AppSetSetIdPlayRoute: AppSetSetIdPlayRoute,
 }
 
 const AppSetSetIdRouteWithChildren = AppSetSetIdRoute._addFileChildren(

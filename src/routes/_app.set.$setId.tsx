@@ -26,7 +26,7 @@ function toMirroredTrack(r: Record<string, unknown>): MirroredTrack {
     title: String(r.title ?? "Untitled"),
     artist: (r.artist as string | null) ?? null,
     upload_url: (r.upload_url as string | null) ?? null,
-    duration: num(r.duration),
+    duration: num(r.duration_seconds),
     bpm: num(r.bpm),
     camelot_key: (r.camelot_key as string | null) ?? null,
     energy: num(r.energy),

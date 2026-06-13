@@ -27,11 +27,7 @@ function DigPage() {
       </p>
 
       <div className="mt-8">
-        <TrackDrop
-          setId={setRow.id}
-          trackCount={tracks.length}
-          onAdded={addLocalTrack}
-        />
+        <TrackDrop setId={setRow.id} trackCount={tracks.length} onAdded={addLocalTrack} />
         <DemoCrate
           setId={setRow.id}
           trackCount={tracks.length}
@@ -99,11 +95,7 @@ function DigPage() {
         to="order"
         setId={setRow.id}
         disabled={tracks.length < 2}
-        hint={
-          tracks.length < 2
-            ? "two tracks is all a blend needs — bring one more."
-            : undefined
-        }
+        hint={tracks.length < 2 ? "two tracks is all a blend needs — bring one more." : undefined}
       >
         These are the ones →
       </StageCta>

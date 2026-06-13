@@ -62,9 +62,7 @@ export function DemoCrate({
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Disc3 className="h-4 w-4 text-warm-link/80" />
-          <p className="text-sm text-foreground/85">
-            No files on you? Try the demo crate.
-          </p>
+          <p className="text-sm text-foreground/85">No files on you? Try the demo crate.</p>
         </div>
         <button
           type="button"
