@@ -18,8 +18,10 @@ import { Route as AppLibraryRouteImport } from './routes/_app.library'
 import { Route as AppShareSetIdRouteImport } from './routes/_app.share.$setId'
 import { Route as AppSetSetIdRouteImport } from './routes/_app.set.$setId'
 import { Route as AppAssemblySetIdRouteImport } from './routes/_app.assembly_.$setId'
+import { Route as AppSetSetIdPolishRouteImport } from './routes/_app.set.$setId.polish'
 import { Route as AppSetSetIdPlayRouteImport } from './routes/_app.set.$setId.play'
 import { Route as AppSetSetIdOrderRouteImport } from './routes/_app.set.$setId.order'
+import { Route as AppSetSetIdDoorRouteImport } from './routes/_app.set.$setId.door'
 import { Route as AppSetSetIdDigRouteImport } from './routes/_app.set.$setId.dig'
 
 const AppRoute = AppRouteImport.update({
@@ -66,6 +68,11 @@ const AppAssemblySetIdRoute = AppAssemblySetIdRouteImport.update({
   path: '/assembly/$setId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSetSetIdPolishRoute = AppSetSetIdPolishRouteImport.update({
+  id: '/polish',
+  path: '/polish',
+  getParentRoute: () => AppSetSetIdRoute,
+} as any)
 const AppSetSetIdPlayRoute = AppSetSetIdPlayRouteImport.update({
   id: '/play',
   path: '/play',
@@ -74,6 +81,11 @@ const AppSetSetIdPlayRoute = AppSetSetIdPlayRouteImport.update({
 const AppSetSetIdOrderRoute = AppSetSetIdOrderRouteImport.update({
   id: '/order',
   path: '/order',
+  getParentRoute: () => AppSetSetIdRoute,
+} as any)
+const AppSetSetIdDoorRoute = AppSetSetIdDoorRouteImport.update({
+  id: '/door',
+  path: '/door',
   getParentRoute: () => AppSetSetIdRoute,
 } as any)
 const AppSetSetIdDigRoute = AppSetSetIdDigRouteImport.update({
@@ -92,8 +104,10 @@ export interface FileRoutesByFullPath {
   '/set/$setId': typeof AppSetSetIdRouteWithChildren
   '/share/$setId': typeof AppShareSetIdRoute
   '/set/$setId/dig': typeof AppSetSetIdDigRoute
+  '/set/$setId/door': typeof AppSetSetIdDoorRoute
   '/set/$setId/order': typeof AppSetSetIdOrderRoute
   '/set/$setId/play': typeof AppSetSetIdPlayRoute
+  '/set/$setId/polish': typeof AppSetSetIdPolishRoute
 }
 export interface FileRoutesByTo {
   '/library': typeof AppLibraryRoute
@@ -105,8 +119,10 @@ export interface FileRoutesByTo {
   '/set/$setId': typeof AppSetSetIdRouteWithChildren
   '/share/$setId': typeof AppShareSetIdRoute
   '/set/$setId/dig': typeof AppSetSetIdDigRoute
+  '/set/$setId/door': typeof AppSetSetIdDoorRoute
   '/set/$setId/order': typeof AppSetSetIdOrderRoute
   '/set/$setId/play': typeof AppSetSetIdPlayRoute
+  '/set/$setId/polish': typeof AppSetSetIdPolishRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -120,8 +136,10 @@ export interface FileRoutesById {
   '/_app/set/$setId': typeof AppSetSetIdRouteWithChildren
   '/_app/share/$setId': typeof AppShareSetIdRoute
   '/_app/set/$setId/dig': typeof AppSetSetIdDigRoute
+  '/_app/set/$setId/door': typeof AppSetSetIdDoorRoute
   '/_app/set/$setId/order': typeof AppSetSetIdOrderRoute
   '/_app/set/$setId/play': typeof AppSetSetIdPlayRoute
+  '/_app/set/$setId/polish': typeof AppSetSetIdPolishRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -135,8 +153,10 @@ export interface FileRouteTypes {
     | '/set/$setId'
     | '/share/$setId'
     | '/set/$setId/dig'
+    | '/set/$setId/door'
     | '/set/$setId/order'
     | '/set/$setId/play'
+    | '/set/$setId/polish'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/library'
@@ -148,8 +168,10 @@ export interface FileRouteTypes {
     | '/set/$setId'
     | '/share/$setId'
     | '/set/$setId/dig'
+    | '/set/$setId/door'
     | '/set/$setId/order'
     | '/set/$setId/play'
+    | '/set/$setId/polish'
   id:
     | '__root__'
     | '/_app'
@@ -162,8 +184,10 @@ export interface FileRouteTypes {
     | '/_app/set/$setId'
     | '/_app/share/$setId'
     | '/_app/set/$setId/dig'
+    | '/_app/set/$setId/door'
     | '/_app/set/$setId/order'
     | '/_app/set/$setId/play'
+    | '/_app/set/$setId/polish'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -236,6 +260,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAssemblySetIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/set/$setId/polish': {
+      id: '/_app/set/$setId/polish'
+      path: '/polish'
+      fullPath: '/set/$setId/polish'
+      preLoaderRoute: typeof AppSetSetIdPolishRouteImport
+      parentRoute: typeof AppSetSetIdRoute
+    }
     '/_app/set/$setId/play': {
       id: '/_app/set/$setId/play'
       path: '/play'
@@ -250,6 +281,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSetSetIdOrderRouteImport
       parentRoute: typeof AppSetSetIdRoute
     }
+    '/_app/set/$setId/door': {
+      id: '/_app/set/$setId/door'
+      path: '/door'
+      fullPath: '/set/$setId/door'
+      preLoaderRoute: typeof AppSetSetIdDoorRouteImport
+      parentRoute: typeof AppSetSetIdRoute
+    }
     '/_app/set/$setId/dig': {
       id: '/_app/set/$setId/dig'
       path: '/dig'
@@ -262,14 +300,18 @@ declare module '@tanstack/react-router' {
 
 interface AppSetSetIdRouteChildren {
   AppSetSetIdDigRoute: typeof AppSetSetIdDigRoute
+  AppSetSetIdDoorRoute: typeof AppSetSetIdDoorRoute
   AppSetSetIdOrderRoute: typeof AppSetSetIdOrderRoute
   AppSetSetIdPlayRoute: typeof AppSetSetIdPlayRoute
+  AppSetSetIdPolishRoute: typeof AppSetSetIdPolishRoute
 }
 
 const AppSetSetIdRouteChildren: AppSetSetIdRouteChildren = {
   AppSetSetIdDigRoute: AppSetSetIdDigRoute,
+  AppSetSetIdDoorRoute: AppSetSetIdDoorRoute,
   AppSetSetIdOrderRoute: AppSetSetIdOrderRoute,
   AppSetSetIdPlayRoute: AppSetSetIdPlayRoute,
+  AppSetSetIdPolishRoute: AppSetSetIdPolishRoute,
 }
 
 const AppSetSetIdRouteWithChildren = AppSetSetIdRoute._addFileChildren(

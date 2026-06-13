@@ -382,3 +382,24 @@
   border-radius: 1rem;
   scroll-margin-top: 5rem;
 }
+
+/* === Print: the set sheet, and only the set sheet ===
+   On screen, .gr-print-only is hidden and .gr-screen-only shows. When
+   printing (or save-as-PDF), we flip them so a clean blueprint prints alone. */
+.gr-print-only { display: none; }
+@media print {
+  body * { visibility: hidden; }
+  .gr-print-only,
+  .gr-print-only * { visibility: visible; }
+  .gr-print-only {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 2rem;
+    color: #1a1a1a;
+    background: #fff;
+  }
+  .gr-screen-only { display: none !important; }
+}
