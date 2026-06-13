@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { Download, FileText, Share2, Loader2, Check, Printer, X } from "lucide-react";
+import {
+  Download,
+  FileText,
+  Share2,
+  Loader2,
+  Check,
+  Printer,
+  X,
+  Disc3,
+  ArrowRight,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFlow } from "@/components/flow/flow-context";
@@ -10,9 +20,11 @@ import { SetSheet } from "@/components/flow/SetSheet";
 import { getRender } from "@/utils/render-cache";
 import { renderSetMasterBuffer, audioBufferToWav, type MasterSettings } from "@/utils/render";
 import { encodeMp3, downloadBlob, filenameFor } from "@/utils/mp3-encode";
+import { exportBooth } from "@/utils/export-dj";
 import { buildBlueprint, blueprintToMarkdown } from "@/utils/blueprint";
 import { releaseBlurb } from "@/utils/companion-lines";
 import { hasExported, markExported } from "@/utils/export-cap";
+import { coverGradient } from "@/utils/swatches";
 import {
   foundersStripeLink,
   FOUNDERS_PRICE_EUR,
@@ -28,13 +40,23 @@ export const Route = createFileRoute("/_app/set/$setId/door")({
 
 const PRESET: MasterSettings = { lufs: -14, low: 1, mid: 0, high: 1, width: 55, glue: 45 };
 
+function fmt(sec: number): string {
+  if (!Number.isFinite(sec) || sec <= 0) return "";
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 /**
- * S5 — Deep breath out, the door.
- * The finished thing leaves the app: a real mp3, a performable set sheet, a
- * (simulated) post. One free export per person, then the founders door.
+ * Deep breath out — the doorrr.
+ * "On y va →" opens the two ways out: To the booth (Rekordbox + cues) and
+ * As a file (mp3/wav + SoundCloud). "On y va pas" — back to the mix, no
+ * pressure. One free file export per person, then the founders door.
  */
 function DoorPage() {
   const { setRow, tracks } = useFlow();
+  const navigate = useNavigate();
+  const [phase, setPhase] = useState<"intro" | "out">("intro");
   const [uid, setUid] = useState<string | null>(null);
   const [capped, setCapped] = useState(false);
   const [encoding, setEncoding] = useState(false);
@@ -45,6 +67,7 @@ function DoorPage() {
 
   const ordered = [...tracks].sort((a, b) => a.position - b.position);
   const blueprint = buildBlueprint(setRow, ordered);
+  const totalSecs = ordered.reduce((sum, t) => sum + (t.duration ?? 0), 0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -54,7 +77,6 @@ function DoorPage() {
     });
   }, []);
 
-  /** Get the rendered master — from the S4 cache, or render on demand. */
   const getMaster = async (): Promise<AudioBuffer | null> => {
     const cached = getRender(setRow.id);
     if (cached) return cached.buffer;
@@ -69,6 +91,7 @@ function DoorPage() {
     if (capped) {
       logEvent("set_exported", { capped: true }, setRow.id);
       document.getElementById("gr-founders")?.scrollIntoView({ behavior: "smooth" });
+      toast("Your first set was free — grab a founder seat for the rest.");
       return;
     }
     setEncoding(true);
@@ -109,88 +132,147 @@ function DoorPage() {
     }
   };
 
+  const doBooth = () => {
+    try {
+      exportBooth(setRow, ordered);
+      logEvent("set_exported", { format: "booth" }, setRow.id);
+      toast("Booth pack ready — Rekordbox XML + set queue.");
+    } catch (e) {
+      console.error("[door] booth export failed", e);
+      toast.error("Couldn't build the booth pack.");
+    }
+  };
+
   const downloadSheet = () => {
     const md = blueprintToMarkdown(blueprint);
     downloadBlob(new Blob([md], { type: "text/markdown" }), filenameFor(setRow.title, "md"));
     logEvent("blueprint_exported", { format: "md" }, setRow.id);
   };
-
   const printSheet = () => {
     logEvent("blueprint_exported", { format: "print" }, setRow.id);
     window.print();
   };
 
+  const gradient = coverGradient(setRow.cover_image_url, setRow.title);
+
   return (
     <div className="flex flex-1 flex-col items-center">
-      <p className="mt-2 text-center text-sm italic text-muted-foreground">
-        it's finished. take it with you.
-      </p>
-
-      <div className="mt-8 grid w-full max-w-md gap-4">
-        {/* 1 — Download the mix */}
-        <DoorCard
-          icon={<Download className="h-5 w-5" />}
-          title={exported ? "Your set is on your machine" : "Download the set"}
-          subtitle={
-            exported
-              ? "an mp3, mastered and ready for the booth."
-              : "a real mp3 — mastered, blended, yours."
-          }
-        >
-          {encoding ? (
-            <div className="w-full">
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary/60">
-                <div
-                  className="h-full rounded-full bg-warm-link transition-all"
-                  style={{ width: `${Math.round(encPct * 100)}%` }}
-                />
-              </div>
-              <p className="mt-1.5 text-center text-[11px] italic text-muted-foreground">
-                encoding mp3… {Math.round(encPct * 100)}%
-              </p>
-            </div>
-          ) : exported ? (
-            <span className="inline-flex items-center gap-1.5 text-sm text-warm-link">
-              <Check className="h-4 w-4" /> downloaded
-            </span>
-          ) : (
-            <CardButton onClick={() => void doExport()}>Download mp3</CardButton>
-          )}
-        </DoorCard>
-
-        {/* 2 — The set sheet (notes & cues) */}
-        <DoorCard
-          icon={<FileText className="h-5 w-5" />}
-          title="The set sheet"
-          subtitle="your order, energy arc, keys, and transition cues — to play with your own hands."
-        >
-          <div className="flex gap-2">
-            <CardButton onClick={() => setSheetOpen(true)} variant="ghost">
-              Preview
-            </CardButton>
-            <CardButton onClick={downloadSheet} variant="ghost">
-              Download .md
-            </CardButton>
-            <CardButton onClick={printSheet} variant="ghost">
-              <Printer className="h-3.5 w-3.5" /> Print / PDF
-            </CardButton>
-          </div>
-        </DoorCard>
-
-        {/* 3 — Share (simulated) */}
-        <DoorCard
-          icon={<Share2 className="h-5 w-5" />}
-          title="Post it"
-          subtitle="share it without apologising. here's a thing you made."
-        >
-          <CardButton onClick={() => setPostOpen(true)} variant="ghost">
-            Post to SoundCloud
-          </CardButton>
-        </DoorCard>
+      {/* The finished set */}
+      <div className="mt-10 flex items-center gap-5">
+        <div
+          className="h-28 w-28 shrink-0 rounded-2xl shadow-lg"
+          style={{ background: gradient }}
+          aria-hidden
+        />
+        <div className="text-left">
+          <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/60">
+            Your set is finished
+          </p>
+          <p className="mt-1 font-display text-3xl text-foreground">
+            {setRow.title || "Untitled set"}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {[fmt(totalSecs), `${ordered.length} tracks`, "2 decks"].filter(Boolean).join(" · ")}
+          </p>
+        </div>
       </div>
 
-      {/* The founders door */}
-      <FoundersCard />
+      <AnimatePresence mode="wait">
+        {phase === "intro" ? (
+          <motion.div
+            key="intro"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="flex flex-col items-center"
+          >
+            <p className="mt-8 text-base italic text-muted-foreground">
+              It's yours. Ready to let it out?
+            </p>
+            <div className="mt-5 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setPhase("out")}
+                className="inline-flex items-center gap-2 rounded-full bg-warm-link px-7 py-3 font-display text-base text-background transition-all hover:shadow-[0_0_28px_-6px_var(--warm-link)]"
+              >
+                On y va <ArrowRight className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate({ to: "/set/$setId/play", params: { setId: setRow.id } })}
+                className="rounded-full border border-border/60 px-7 py-3 font-display text-base text-foreground/85 transition-all hover:border-warm-link hover:text-foreground"
+              >
+                On y va pas
+              </button>
+            </div>
+            <p className="mt-4 text-[11px] italic text-muted-foreground/60">
+              "on y va" → choose where it goes · "on y va pas" → back to the mix, no pressure
+            </p>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="out"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="w-full"
+          >
+            <div className="mx-auto mt-8 grid w-full max-w-2xl gap-4 sm:grid-cols-2">
+              {/* To the booth */}
+              <DoorCard
+                icon={<Disc3 className="h-5 w-5" />}
+                title="To the booth"
+                subtitle="setlist + cue points → rekordbox · Serato · djay Pro"
+              >
+                <div className="flex flex-wrap gap-2">
+                  <CardButton onClick={doBooth}>Export for the booth</CardButton>
+                  <CardButton onClick={() => setSheetOpen(true)} variant="ghost">
+                    Set sheet
+                  </CardButton>
+                </div>
+              </DoorCard>
+
+              {/* As a file */}
+              <DoorCard
+                icon={<Download className="h-5 w-5" />}
+                title="As a file"
+                subtitle="polished mp3 / wav → USB stick or SoundCloud"
+              >
+                {encoding ? (
+                  <div className="w-full">
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary/60">
+                      <div
+                        className="h-full rounded-full bg-warm-link transition-all"
+                        style={{ width: `${Math.round(encPct * 100)}%` }}
+                      />
+                    </div>
+                    <p className="mt-1.5 text-center text-[11px] italic text-muted-foreground">
+                      encoding mp3… {Math.round(encPct * 100)}%
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    <CardButton onClick={() => void doExport()}>
+                      {exported ? (
+                        <>
+                          <Check className="h-3.5 w-3.5" /> downloaded
+                        </>
+                      ) : (
+                        "Download mp3"
+                      )}
+                    </CardButton>
+                    <CardButton onClick={() => setPostOpen(true)} variant="ghost">
+                      <Share2 className="h-3.5 w-3.5" /> SoundCloud
+                    </CardButton>
+                  </div>
+                )}
+              </DoorCard>
+            </div>
+
+            <FoundersCard />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex-1" />
       <StageBack to="polish" setId={setRow.id} label="back to polish" />
@@ -204,7 +286,7 @@ function DoorPage() {
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <CardButton onClick={downloadSheet} variant="ghost">
-                Download .md
+                <FileText className="h-3.5 w-3.5" /> Download .md
               </CardButton>
               <CardButton onClick={printSheet}>
                 <Printer className="h-3.5 w-3.5" /> Print / PDF
@@ -293,7 +375,7 @@ function FoundersCard() {
   return (
     <div
       id="gr-founders"
-      className="gr-screen-only mt-8 w-full max-w-md rounded-2xl border border-warm-link/40 bg-warm-link/5 p-6 text-center backdrop-blur-sm"
+      className="gr-screen-only mx-auto mt-6 w-full max-w-md rounded-2xl border border-warm-link/40 bg-warm-link/5 p-6 text-center backdrop-blur-sm"
     >
       <p className="font-display text-lg text-foreground">Your first set was free.</p>
       <p className="mt-1 text-sm text-muted-foreground">
