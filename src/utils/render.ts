@@ -14,12 +14,12 @@ import { floatToWavBlob } from "@/utils/share";
  */
 
 export type MasterSettings = {
-  lufs: number;   // -24..-6, used as a rough output gain target
-  low: number;    // dB, low-shelf @ 120Hz
-  mid: number;    // dB, peaking @ 1kHz
-  high: number;   // dB, high-shelf @ 6kHz
-  width: number;  // 0..100, mid/side width
-  glue: number;   // 0..100, compressor amount
+  lufs: number; // -24..-6, used as a rough output gain target
+  low: number; // dB, low-shelf @ 120Hz
+  mid: number; // dB, peaking @ 1kHz
+  high: number; // dB, high-shelf @ 6kHz
+  width: number; // 0..100, mid/side width
+  glue: number; // 0..100, compressor amount
 };
 
 const SR = 44100;
@@ -34,21 +34,25 @@ export const CROSSFADE_SEC = 6;
  */
 export function computeTimeline(
   durations: number[],
-  fadeSec: number = CROSSFADE_SEC,
+  fadeSec: number | number[] = CROSSFADE_SEC,
 ): { starts: number[]; total: number } {
+  const fadeAt = (i: number) => (Array.isArray(fadeSec) ? (fadeSec[i] ?? CROSSFADE_SEC) : fadeSec);
   const starts: number[] = [];
   let cursor = 0;
   for (let i = 0; i < durations.length; i++) {
     starts.push(cursor);
     const dur = durations[i];
-    const advance = i === durations.length - 1 ? dur : Math.max(0.5, dur - fadeSec);
+    // Boundary i is between track i and i+1; its fade shortens this track's advance.
+    const advance = i === durations.length - 1 ? dur : Math.max(0.5, dur - fadeAt(i));
     cursor += advance;
   }
   return { starts, total: cursor };
 }
 
 /** Pull every track on the set that has a playable upload_url, in arrangement order. */
-export async function loadSetAudioSources(setId: string): Promise<{ url: string; title: string }[]> {
+export async function loadSetAudioSources(
+  setId: string,
+): Promise<{ url: string; title: string }[]> {
   const { data, error } = await supabase
     .from("tracks")
     .select("title, upload_url, position")
@@ -61,7 +65,10 @@ export async function loadSetAudioSources(setId: string): Promise<{ url: string;
 }
 
 /** Fetch + decode a single audio URL into an AudioBuffer at the target sample rate. */
-async function decodeUrl(ctx: OfflineAudioContext | AudioContext, url: string): Promise<AudioBuffer | null> {
+async function decodeUrl(
+  ctx: OfflineAudioContext | AudioContext,
+  url: string,
+): Promise<AudioBuffer | null> {
   try {
     const resp = await fetch(url);
     if (!resp.ok) return null;
@@ -111,10 +118,14 @@ function buildMasterBus(ctx: OfflineAudioContext, settings: MasterSettings): Aud
   highShelf.connect(splitter);
 
   // L' = L*(1 + w*0.5) - R*(w*0.5); R' = R*(1 + w*0.5) - L*(w*0.5)
-  const lToL = ctx.createGain(); lToL.gain.value = 1 + widthNorm * 0.5;
-  const rToR = ctx.createGain(); rToR.gain.value = 1 + widthNorm * 0.5;
-  const rToLNeg = ctx.createGain(); rToLNeg.gain.value = -widthNorm * 0.5;
-  const lToRNeg = ctx.createGain(); lToRNeg.gain.value = -widthNorm * 0.5;
+  const lToL = ctx.createGain();
+  lToL.gain.value = 1 + widthNorm * 0.5;
+  const rToR = ctx.createGain();
+  rToR.gain.value = 1 + widthNorm * 0.5;
+  const rToLNeg = ctx.createGain();
+  rToLNeg.gain.value = -widthNorm * 0.5;
+  const lToRNeg = ctx.createGain();
+  lToRNeg.gain.value = -widthNorm * 0.5;
 
   splitter.connect(lToL, 0);
   splitter.connect(lToRNeg, 0);
@@ -210,7 +221,8 @@ export async function renderSetMasterBuffer(
   // supports decodeAudioData but we need durations to size the offline ctx.
   onProgress?.("Decoding tracks…");
   const Ctx: typeof AudioContext =
-    (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext);
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
   const tmp = new Ctx();
   const decoded: AudioBuffer[] = [];
   for (const s of sources) {
@@ -223,7 +235,10 @@ export async function renderSetMasterBuffer(
 
   // Compute timeline with crossfades (shared with the live player)
   const fade = CROSSFADE_SEC;
-  const { starts, total } = computeTimeline(decoded.map((d) => d.duration), fade);
+  const { starts, total } = computeTimeline(
+    decoded.map((d) => d.duration),
+    fade,
+  );
   const totalDur = total + 0.25; // small tail
 
   onProgress?.("Rendering master…");
@@ -284,8 +299,10 @@ export function audioBufferToWav(buf: AudioBuffer): Blob {
   for (let i = 0; i < numSamples; i++) {
     const l = Math.max(-1, Math.min(1, left[i]));
     const r = Math.max(-1, Math.min(1, right[i]));
-    view.setInt16(offset, l < 0 ? l * 0x8000 : l * 0x7fff, true); offset += 2;
-    view.setInt16(offset, r < 0 ? r * 0x8000 : r * 0x7fff, true); offset += 2;
+    view.setInt16(offset, l < 0 ? l * 0x8000 : l * 0x7fff, true);
+    offset += 2;
+    view.setInt16(offset, r < 0 ? r * 0x8000 : r * 0x7fff, true);
+    offset += 2;
   }
 
   return new Blob([buffer], { type: "audio/wav" });

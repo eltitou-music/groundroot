@@ -69,6 +69,8 @@ export class LivePlayer {
   private durations: number[] = [];
   private starts: number[] = [];
   private total = 0;
+  /** Per-boundary crossfade lengths (boundary i = between track i and i+1). */
+  private fades: number[] = [];
 
   private voices = new Map<number, Voice>();
   private currentIndex = 0;
@@ -157,14 +159,34 @@ export class LivePlayer {
     void this.decode(0);
   }
 
+  private fadeFor(boundary: number): number {
+    const f = this.fades[boundary];
+    return f === undefined || f === null ? this.fade : Math.max(0.05, f);
+  }
+
   private recomputeTimeline(): void {
-    const tl = computeTimeline(this.durations, this.fade);
+    const fadesArr = this.tracks.map((_, i) => this.fadeFor(i));
+    const tl = computeTimeline(this.durations, fadesArr);
     this.starts = tl.starts;
     this.total = tl.total;
   }
 
+  /** Set per-boundary crossfade lengths (seconds). Recomputes the timeline. */
+  setFades(fades: number[]): void {
+    this.fades = fades.slice();
+    if (this.durations.length) {
+      this.recomputeTimeline();
+      this.emit();
+    }
+  }
+
   getDurations(): number[] {
     return [...this.durations];
+  }
+
+  /** Timeline for the lanes: where each track sits and the set length. */
+  getTimeline(): { starts: number[]; durations: number[]; total: number } {
+    return { starts: [...this.starts], durations: [...this.durations], total: this.total };
   }
 
   /** Start (or resume) playback of `idx` at `offset` seconds into the track. */
@@ -274,14 +296,15 @@ export class LivePlayer {
     const dur = this.durations[i] || 0;
     const offset = this.currentOffset();
     const remaining = dur - offset;
+    const fade = this.fadeFor(i);
 
-    if (i + 1 < this.tracks.length && remaining < this.fade * 2) {
+    if (i + 1 < this.tracks.length && remaining < fade * 2) {
       void this.decode(i + 1);
     }
 
-    if (i + 1 < this.tracks.length && remaining <= this.fade && !this.blendStartedFor.has(i)) {
+    if (i + 1 < this.tracks.length && remaining <= fade && !this.blendStartedFor.has(i)) {
       this.blendStartedFor.add(i);
-      void this.beginBlend(i, Math.max(0.4, remaining));
+      void this.beginBlend(i, Math.max(0.2, Math.min(fade, remaining)));
     }
 
     if (i === this.tracks.length - 1 && offset >= dur - 0.05) {
