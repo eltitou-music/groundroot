@@ -1,908 +1,353 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sprout, Loader2, ArrowRight, Sparkles, RotateCcw } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Upload, Loader2, Mic, ArrowRight, Folder, Usb, Cloud, Globe, Library } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { RootSystem } from "@/components/welcome/RootSystem";
-import { findTodaySet, getOrCreateTodaySet, ensureUserId } from "@/utils/today-set";
-import { isCoachStateFresh, type StoredCoachState } from "@/utils/coach-state";
-import { FLOW_V2 } from "@/utils/flags";
-import { welcomeFallback } from "@/utils/companion-lines";
+import { ensureUserId, getOrCreateTodaySet, findTodaySet } from "@/utils/today-set";
 import { saveMirror, latestMirroredSetId } from "@/utils/set-mirror";
+import { uploadAudioFile, partitionAudio, ACCEPT_ATTR, MAX_TRACKS_PER_SET } from "@/utils/upload";
 import { logEvent } from "@/utils/telemetry";
+import { supabase } from "@/integrations/supabase/client";
 
-type Pillar = "library" | "assembly" | "mastering";
-
-type Destination = {
-  label: string;
-  hint: string;
-  to: "/library" | "/assembly" | "/mastering";
-};
-
-const destinations: Destination[] = [
-  { label: "Library", hint: "find sounds", to: "/library" },
-  { label: "Assembly", hint: "build a set", to: "/assembly" },
-  { label: "Mastery", hint: "polish the finish", to: "/mastering" },
-];
-
-type IntentionTemplate = {
-  label: string;
-  emoji: string;
-  intention: string;
-};
-
-const intentionTemplates: IntentionTemplate[] = [
-  { label: "Sunset brunch", emoji: "🌅", intention: "Sunset brunch — warm, jazzy house with a slow golden build" },
-  { label: "Techno night", emoji: "🌑", intention: "Techno night — driving, hypnotic, peak-time energy after midnight" },
-  { label: "House warmup", emoji: "🎚️", intention: "House warmup — deep, groovy, opening the room without rushing" },
-  { label: "Afters", emoji: "🌫️", intention: "Afters — dubby, melodic, dawn comedown for close friends" },
-  { label: "Focus session", emoji: "📚", intention: "Focus session — ambient and minimal, no vocals, long flow state" },
-  { label: "Road trip", emoji: "🚗", intention: "Road trip — uplifting indie and disco, windows-down energy" },
-];
-
-/* ----- Conversation types ----- */
-
-type AssistantMsg = {
-  role: "assistant";
-  content: string;
-  chips?: string[];
-  isFinal?: boolean;
-  pillar?: Pillar;
-  section?: string;
-};
-type UserMsg = { role: "user"; content: string };
-type ChatMsg = AssistantMsg | UserMsg;
-
+/**
+ * 00 — Wooo — deep breath in.
+ * Onboarding centered on bringing music in. Logo sits top-left (AppShell);
+ * the centre is the drop area, the intention is an optional vibe below.
+ * "Bring your ideas here → set your intention → start creating."
+ */
 export function WelcomePage() {
   const navigate = useNavigate();
+  const [vibe, setVibe] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [busyMsg, setBusyMsg] = useState("");
+  const [dragOver, setDragOver] = useState(false);
+  const [resumeId, setResumeId] = useState<string | null>(null);
+  const [listening, setListening] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const folderRef = useRef<HTMLInputElement>(null);
 
-  // Form state
-  const [intention, setIntention] = useState("");
-  const [dedicatedTo, setDedicatedTo] = useState("");
-  const [todaySetId, setTodaySetId] = useState<string | null>(null);
-
-  // Conversation state
-  const [messages, setMessages] = useState<ChatMsg[]>([]);
-  const [reply, setReply] = useState("");
-  const [pending, setPending] = useState(false);
-  const [routing, setRouting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // FLOW_V2: the one warm send-off line before the breath moves to the dig
-  const [sendOff, setSendOff] = useState<string | null>(null);
-
-  // Resume state — when we find a saved conversation on this set
-  const [resumed, setResumed] = useState(false);
-  const [lastPillar, setLastPillar] = useState<Pillar | null>(null);
-  const [lastSection, setLastSection] = useState<string | null>(null);
-  const [showResumeBanner, setShowResumeBanner] = useState(false);
-
-  const replyInputRef = useRef<HTMLInputElement | null>(null);
-  const threadEndRef = useRef<HTMLDivElement | null>(null);
-
-  const conversationStarted = messages.length > 0;
-  const lastMsg = messages[messages.length - 1];
-  const lastIsAssistantQuestion =
-    lastMsg?.role === "assistant" && !lastMsg.isFinal;
-
-  // FLOW_V2 offline re-entry: if the session lookup couldn't run (wifi down),
-  // fall back to the most recently mirrored set so "Resume" still works.
-  useEffect(() => {
-    if (!FLOW_V2) return;
-    const t = setTimeout(() => {
-      setTodaySetId((cur) => cur ?? latestMirroredSetId());
-    }, 1500);
-    return () => clearTimeout(t);
-  }, []);
-
-  // Resume today's set + coach conversation on mount
+  // Offer a quiet "pick up where you left off" if a recent set exists.
   useEffect(() => {
     let cancelled = false;
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (cancelled) return;
-      const uid = data.session?.user.id;
-      if (!uid) return;
-      try {
-        const today = await findTodaySet(uid);
-        if (cancelled || !today) return;
-        setTodaySetId(today.id);
-        if (today.intention) setIntention(today.intention);
-        if (today.dedicated_to) setDedicatedTo(today.dedicated_to);
-
-        // Pull the saved coach_state, if any
-        const { data: stateRow } = await supabase
-          .from("sets")
-          .select("coach_state, updated_at")
-          .eq("id", today.id)
-          .maybeSingle();
-        if (cancelled) return;
-        const cs = (stateRow?.coach_state ?? null) as StoredCoachState;
-        const fresh = isCoachStateFresh(cs, stateRow?.updated_at ?? null);
-        if (fresh && cs && Array.isArray(cs.messages) && cs.messages.length > 0) {
-          setMessages(cs.messages as ChatMsg[]);
-          const lp = cs.lastPillar;
-          setLastPillar(
-            lp === "library" || lp === "assembly" || lp === "mastering" ? lp : null,
-          );
-          setLastSection(cs.lastSection ?? null);
-          setResumed(true);
-          setShowResumeBanner(true);
-        } else if (cs && Array.isArray(cs.messages) && cs.messages.length > 0) {
-          // Conversation exists but is stale — clear it so the Home dot and
-          // resume banner don't keep nudging the user about old context.
-          await supabase
-            .from("sets")
-            .update({ coach_state: {} })
-            .eq("id", today.id);
-        }
-      } catch { /* ignore */ }
-    });
-    return () => { cancelled = true; };
+    supabase.auth
+      .getSession()
+      .then(async ({ data }) => {
+        const uid = data.session?.user.id;
+        if (!uid || cancelled) return;
+        const today = await findTodaySet(uid).catch(() => null);
+        if (today && !cancelled) setResumeId(today.id);
+      })
+      .catch(() => undefined);
+    const t = setTimeout(() => {
+      if (!cancelled) setResumeId((cur) => cur ?? latestMirroredSetId());
+    }, 1500);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, []);
 
-  // Autoscroll to bottom of thread on new message
-  useEffect(() => {
-    threadEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages.length, pending]);
-
-  /* ----- Persist conversation to sets.coach_state ----- */
-  const persistCoachState = async (
-    nextMessages: ChatMsg[],
-    pillar: Pillar | null,
-    section: string | null,
-  ) => {
-    if (!todaySetId) return;
-    try {
-      await supabase
-        .from("sets")
-        .update({
-          coach_state: {
-            messages: nextMessages,
-            lastPillar: pillar,
-            lastSection: section,
-            updatedAt: new Date().toISOString(),
-          },
-        })
-        .eq("id", todaySetId);
-    } catch (e) {
-      console.warn("[welcome] persist coach state failed", e);
-    }
-  };
-
-  /* ----- Persist + navigate to a pillar with focus ----- */
-  const persistAndGo = async (pillar: Pillar, section?: string) => {
-    if (routing) return;
-    setRouting(true);
+  /** Create (or get) today's set carrying the optional vibe; offline-safe. */
+  const ensureSet = async (): Promise<string> => {
+    const v = vibe.trim();
     try {
       const uid = await ensureUserId();
-      const finalIntention = intention.trim();
-      const today = await getOrCreateTodaySet(uid, finalIntention, dedicatedTo);
-      if (!today.isFresh && (finalIntention || dedicatedTo.trim())) {
-        await supabase
-          .from("sets")
-          .update({
-            intention: finalIntention || today.intention,
-            dedicated_to: dedicatedTo.trim() || today.dedicated_to,
-          })
-          .eq("id", today.id);
+      const today = await getOrCreateTodaySet(uid, v || undefined, undefined);
+      if (!today.isFresh && v) {
+        await supabase.from("sets").update({ intention: v }).eq("id", today.id);
       }
-      setTodaySetId(today.id);
-
-      // Remember where we sent them, so a future visit can resume.
-      const sectionVal = section ?? null;
-      setLastPillar(pillar);
-      setLastSection(sectionVal);
-      await supabase
-        .from("sets")
-        .update({
-          coach_state: {
-            messages,
-            lastPillar: pillar,
-            lastSection: sectionVal,
-            updatedAt: new Date().toISOString(),
-          },
-        })
-        .eq("id", today.id);
-
-      const search: { intention?: string; dedicatedTo?: string; focus?: string } = {};
-      if (finalIntention) search.intention = finalIntention;
-      if (dedicatedTo.trim()) search.dedicatedTo = dedicatedTo.trim();
-      if (section) search.focus = section;
-
-      if (pillar === "assembly") {
-        navigate({
-          to: "/assembly/$setId",
-          params: { setId: today.id },
-          search: section ? { focus: section } : undefined,
-        });
-      } else {
-        navigate({
-          to: pillar === "library" ? "/library" : "/mastering",
-          search: Object.keys(search).length > 0 ? search : undefined,
-        });
-      }
-    } catch (e) {
-      console.error("[welcome] persistAndGo failed", e);
-      toast.error("Couldn't start your set. Please try again.");
-      setRouting(false);
-    }
-  };
-
-  /* ----- Call the coach edge function ----- */
-  const callCoach = async (history: ChatMsg[]) => {
-    const turn = history.filter((m) => m.role === "assistant").length;
-    const { data, error: invokeError } = await supabase.functions.invoke(
-      "welcome-coach",
-      {
-        body: {
-          action: "converse",
-          intention: intention.trim(),
-          dedicatedTo: dedicatedTo.trim(),
-          history: history.map((m) => ({ role: m.role, content: m.content })),
-          turn,
-          resumed,
-          lastPillar,
-          lastSection,
-        },
-      },
-    );
-    if (invokeError) throw invokeError;
-    return data as
-      | { kind: "followup"; message: string; chips: string[] }
-      | { kind: "route"; pillar: Pillar; section: string; message: string; why: string };
-  };
-
-  /* ----- Send a user reply (or start the conversation) ----- */
-  const send = async (userText?: string, isFirstSend = false) => {
-    if (pending || routing) return;
-    const text = (userText ?? reply).trim();
-
-    let nextHistory: ChatMsg[];
-    if (isFirstSend) {
-      // Seed the thread with the user's intention as the first user message.
-      nextHistory = [{ role: "user", content: intention.trim() }];
-    } else {
-      if (!text) return;
-      nextHistory = [...messages, { role: "user", content: text } as UserMsg];
-    }
-
-    setMessages(nextHistory);
-    setShowResumeBanner(false);
-    setReply("");
-    setPending(true);
-    setError(null);
-
-    try {
-      const out = await callCoach(nextHistory);
-      if (out.kind === "followup") {
-        const assistantMsg: AssistantMsg = {
-          role: "assistant",
-          content: out.message,
-          chips: out.chips,
-        };
-        const updated = [...nextHistory, assistantMsg];
-        setMessages(updated);
-        void persistCoachState(updated, lastPillar, lastSection);
-        setPending(false);
-        setTimeout(() => replyInputRef.current?.focus(), 200);
-      } else {
-        const assistantMsg: AssistantMsg = {
-          role: "assistant",
-          content: out.message,
-          isFinal: true,
-          pillar: out.pillar,
-          section: out.section,
-        };
-        const updated = [...nextHistory, assistantMsg];
-        setMessages(updated);
-        void persistCoachState(updated, out.pillar, out.section);
-        setPending(false);
-        // Brief pause so the user reads the send-off, then route.
-        setTimeout(() => persistAndGo(out.pillar, out.section), 1100);
-      }
-    } catch (e) {
-      console.error("[welcome] coach failed", e);
-      const msg = e instanceof Error ? e.message : "Couldn't reach the coach.";
-      setError(msg);
-      setPending(false);
-    }
-  };
-
-  /* ----- FLOW_V2: one breath in — intention, one coach line, into the dig.
-   * The coach call is raced against a 4s timeout; on failure the scripted
-   * companion line appears instead. The demo cannot tell the wifi is down. ----- */
-  const breathSubmit = async (finalIntention: string) => {
-    setPending(true);
-    setError(null);
-
-    let setId: string;
-    try {
-      const uid = await ensureUserId();
-      const today = await getOrCreateTodaySet(uid, finalIntention, dedicatedTo);
-      if (!today.isFresh) {
-        await supabase
-          .from("sets")
-          .update({
-            intention: finalIntention,
-            dedicated_to: dedicatedTo.trim() || today.dedicated_to,
-          })
-          .eq("id", today.id);
-      }
-      setId = today.id;
+      if (v) logEvent("intention_set", { len: v.length }, today.id);
+      return today.id;
     } catch {
-      // True first-run offline: a local-only set keeps the breath alive.
-      setId = `local-${Date.now()}`;
+      const id = `local-${Date.now()}`;
       saveMirror(
-        setId,
+        id,
         {
-          id: setId,
+          id,
           title: "Untitled set",
-          intention: finalIntention,
-          dedicated_to: dedicatedTo.trim() || null,
+          intention: v || null,
+          dedicated_to: null,
           cover_image_url: null,
         },
         [],
       );
+      return id;
     }
-    setTodaySetId(setId);
-    logEvent("intention_set", { len: finalIntention.length }, setId);
+  };
 
-    // One reflective line from the live coach — or the scripted twin.
-    const started = performance.now();
-    let line = welcomeFallback(finalIntention);
-    let offline = true;
-    try {
-      const out = await Promise.race([
-        supabase.functions.invoke("welcome-coach", {
-          body: {
-            action: "converse",
-            intention: finalIntention,
-            dedicatedTo: dedicatedTo.trim(),
-            history: [{ role: "user", content: finalIntention }],
-            turn: 0,
-          },
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("gr-timeout")), 4000),
-        ),
-      ]);
-      const msg = (out?.data as { message?: string } | null)?.message;
-      if (!out?.error && msg) {
-        line = msg;
-        offline = false;
-      }
-    } catch {
-      /* the scripted line stands */
+  const handleFiles = async (files: File[]) => {
+    if (busy || files.length === 0) return;
+    const { accepted, rejected } = partitionAudio(files);
+    rejected.forEach((r) => toast.error(`"${r.file.name}" — ${r.reason}, leaving it out.`));
+    if (accepted.length === 0) return;
+
+    setBusy(true);
+    setBusyMsg("bringing your music in…");
+    const setId = await ensureSet();
+    logEvent("upload_started", { count: accepted.length }, setId);
+
+    const toAdd = accepted.slice(0, MAX_TRACKS_PER_SET);
+    const tracks = [];
+    for (let i = 0; i < toAdd.length; i++) {
+      setBusyMsg(`bringing in ${i + 1} of ${toAdd.length}…`);
+      tracks.push(await uploadAudioFile(setId, toAdd[i], i));
     }
-    logEvent(
-      "coach_replied",
-      { offline, ms: Math.round(performance.now() - started) },
+    // Seed the mirror so dig has them instantly even if reads are slow.
+    saveMirror(
       setId,
+      {
+        id: setId,
+        title: "Untitled set",
+        intention: vibe.trim() || null,
+        dedicated_to: null,
+        cover_image_url: null,
+      },
+      tracks,
     );
-
-    setSendOff(line);
-    setPending(false);
-    setTimeout(() => {
-      navigate({ to: "/set/$setId/dig", params: { setId } });
-    }, 1700);
+    navigate({ to: "/set/$setId/dig", params: { setId } });
   };
 
-  /* ----- Begin conversation from the intention input ----- */
-  const submitIntention = (overrideIntention?: string) => {
-    const finalIntention = (overrideIntention ?? intention).trim();
-    if (!finalIntention || pending || routing || sendOff) return;
-    if (overrideIntention) setIntention(overrideIntention);
-    if (FLOW_V2) {
-      void breathSubmit(finalIntention);
+  const openCrate = async () => {
+    if (busy) return;
+    setBusy(true);
+    setBusyMsg("opening the crate…");
+    const setId = await ensureSet();
+    navigate({ to: "/set/$setId/dig", params: { setId } });
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    void handleFiles(Array.from(e.dataTransfer.files));
+  };
+
+  const onVibeKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") void openCrate();
+  };
+
+  // Optional voice capture for the vibe (graceful no-op if unsupported).
+  const startVoice = () => {
+    const SR =
+      (window as unknown as { SpeechRecognition?: new () => SpeechRecognitionLike })
+        .SpeechRecognition ||
+      (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognitionLike })
+        .webkitSpeechRecognition;
+    if (!SR) {
+      toast("Voice input isn't available here — type your vibe.");
       return;
     }
-    void send(undefined, /* isFirstSend */ true);
+    const rec = new SR();
+    rec.lang = "en-US";
+    rec.interimResults = false;
+    rec.onresult = (ev: SpeechResultLike) => {
+      const text = ev.results?.[0]?.[0]?.transcript ?? "";
+      if (text) setVibe((v) => (v ? `${v} ${text}` : text));
+    };
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    setListening(true);
+    rec.start();
   };
 
-  /* ----- Skip the chat — quick pillar shortcut ----- */
-  const goToPillar = (to: Destination["to"]) => {
-    if (to === "/assembly") {
-      void persistAndGo("assembly");
-      return;
-    }
-    const finalIntention = intention.trim();
-    const finalDedication = dedicatedTo.trim();
-    const search: { intention?: string; dedicatedTo?: string } = {};
-    if (finalIntention) search.intention = finalIntention;
-    if (finalDedication) search.dedicatedTo = finalDedication;
-    navigate({
-      to,
-      search: Object.keys(search).length > 0 ? search : undefined,
-    });
-  };
-
-  const restart = async () => {
-    setMessages([]);
-    setReply("");
-    setError(null);
-    setPending(false);
-    setResumed(false);
-    setLastPillar(null);
-    setLastSection(null);
-    setShowResumeBanner(false);
-    if (todaySetId) {
-      await supabase
-        .from("sets")
-        .update({ coach_state: {} })
-        .eq("id", todaySetId);
-    }
-  };
-
-  const continueWhereLeftOff = () => {
-    if (!lastPillar) return;
-    void persistAndGo(lastPillar, lastSection ?? undefined);
-  };
-
-  const keepTalking = () => {
-    setShowResumeBanner(false);
-    setTimeout(() => replyInputRef.current?.focus(), 100);
-  };
-
-  const onIntentionKey = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") { e.preventDefault(); submitIntention(); }
-  };
-  const onReplyKey = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") { e.preventDefault(); void send(); }
-  };
+  const sources: { icon: typeof Folder; label: string; sub: string; onClick: () => void }[] = [
+    {
+      icon: Folder,
+      label: "Local files",
+      sub: "mp3 · wav · m4a",
+      onClick: () => fileRef.current?.click(),
+    },
+    { icon: Usb, label: "USB drive", sub: "your crate", onClick: () => folderRef.current?.click() },
+    {
+      icon: Cloud,
+      label: "Google Drive",
+      sub: "connect",
+      onClick: () => toast("Drive connect — coming soon."),
+    },
+    {
+      icon: Globe,
+      label: "Online libraries",
+      sub: "search & add",
+      onClick: () => void openCrate(),
+    },
+    {
+      icon: Library,
+      label: "Free archives",
+      sub: "archive.org · FMA",
+      onClick: () => void openCrate(),
+    },
+  ];
 
   return (
-    <div className="relative isolate flex min-h-[calc(100vh-4rem)] flex-col">
-      {/* === DAWN SKY BAND === */}
-      <div className="relative h-[18vh] min-h-[140px] w-full overflow-hidden">
+    <div className="relative flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center px-6 pb-16">
+      <input
+        ref={fileRef}
+        type="file"
+        accept={ACCEPT_ATTR}
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          void handleFiles(Array.from(e.target.files ?? []));
+          if (fileRef.current) fileRef.current.value = "";
+        }}
+      />
+      <input
+        ref={folderRef}
+        type="file"
+        // @ts-expect-error non-standard but widely supported folder picker
+        webkitdirectory=""
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          void handleFiles(Array.from(e.target.files ?? []));
+          if (folderRef.current) folderRef.current.value = "";
+        }}
+      />
+
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7, ease: "easeOut" }}
+        className="flex w-full max-w-2xl flex-col items-center text-center"
+      >
+        <p className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground/70">New set</p>
+        <h1
+          className="mt-3 font-display font-medium leading-[1.05] tracking-tight text-foreground"
+          style={{ fontSize: "clamp(40px, 6vw, 68px)" }}
+        >
+          Bring your music in.
+        </h1>
+
+        {/* Drop card */}
         <div
-          aria-hidden
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(180deg, #F4E6C5 0%, #E8DCC4 55%, #D4A574 100%)",
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
           }}
-        />
-        <motion.div
-          aria-hidden
-          initial={{ scale: 0.96, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 1.6, ease: "easeOut" }}
-          className="root-breath absolute left-[18%] top-[55%] -translate-y-1/2"
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDrop}
+          className={cn(
+            "mt-10 w-full rounded-3xl border bg-card/60 p-6 backdrop-blur-sm transition-all md:p-8",
+            dragOver
+              ? "border-warm-link bg-card/80 shadow-[0_0_40px_-10px_var(--warm-link)]"
+              : "border-border/60",
+          )}
         >
-          <div
-            className="h-20 w-20 rounded-full"
-            style={{
-              background:
-                "radial-gradient(circle at 45% 45%, #FFF1CC 0%, #F0CC85 50%, rgba(212,165,116,0) 100%)",
-              filter: "blur(0.5px)",
-              boxShadow:
-                "0 0 50px 20px rgba(240,204,133,0.45), 0 0 100px 40px rgba(212,165,116,0.20)",
-            }}
-          />
-        </motion.div>
-        <svg
-          aria-hidden
-          viewBox="0 0 1200 30"
-          preserveAspectRatio="none"
-          className="absolute inset-x-0 bottom-0 h-6 w-full"
-        >
-          {Array.from({ length: 90 }).map((_, i) => {
-            const x = (i / 90) * 1200 + (i % 3) * 4;
-            const h = 8 + ((i * 13) % 14);
-            return (
-              <path
-                key={i}
-                d={`M ${x} 30 L ${x - 1.5} ${30 - h} L ${x + 1.5} 30 Z`}
-                fill="#6B8E4E"
-                opacity={0.55 + ((i * 7) % 30) / 100}
-              />
-            );
-          })}
-        </svg>
-        <motion.svg
-          aria-hidden
-          viewBox="0 0 24 24"
-          initial={{ x: "-10%", y: 28, opacity: 0 }}
-          animate={{ x: "110%", y: 18, opacity: [0, 0.85, 0.85, 0] }}
-          transition={{ duration: 22, repeat: Infinity, ease: "linear", delay: 1.2 }}
-          className="absolute top-[28%] h-4 w-4 text-foreground/60"
-        >
-          <path d="M22 2L11 13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none" />
-          <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" fill="currentColor" fillOpacity="0.15" />
-        </motion.svg>
-      </div>
-
-      {/* === MAIN CONTENT === */}
-      <div className="relative flex flex-1 flex-col items-center px-6 pb-48 pt-12 text-center md:pt-16">
-        <motion.h1
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, ease: "easeOut" }}
-          className="root-breath font-display font-medium leading-[0.95] tracking-tight text-gradient-brand-radial"
-          style={{ fontSize: "clamp(56px, 9vw, 120px)" }}
-        >
-          GroundRoot
-        </motion.h1>
-
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-          className="mt-4 flex flex-col items-center"
-        >
-          <p className="font-display text-base italic text-foreground/80 md:text-lg">
-            From quiet intention to proud expression in one breath.
-          </p>
-          <span aria-hidden className="mt-1 block h-px w-32 bg-foreground/40" />
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.45, ease: "easeOut" }}
-          className="mt-12 w-full max-w-xl"
-        >
-          <p className="mb-2 text-left text-xs uppercase tracking-[0.2em] text-warm-link/80">
-            Today's intention
-          </p>
-          <div className="group relative rounded-full border border-border/60 bg-card/60 px-6 py-1 backdrop-blur-sm transition-colors focus-within:border-warm-link">
-            <input
-              type="text"
-              value={intention}
-              onChange={(e) => setIntention(e.target.value)}
-              onKeyDown={onIntentionKey}
-              disabled={conversationStarted || !!sendOff}
-              placeholder="What do you want to say? (e.g. a slow morning for E.)"
-              autoFocus
-              className={cn(
-                "w-full bg-transparent py-3 pr-10 text-base text-foreground",
-                "placeholder:text-muted-foreground/50",
-                "border-0 focus:outline-none",
-                "disabled:opacity-70",
-              )}
-            />
-            <button
-              type="button"
-              onClick={() => submitIntention()}
-              disabled={pending || !intention.trim() || conversationStarted}
-              aria-label="Begin the conversation"
-              title="Begin the conversation"
-              className={cn(
-                "absolute right-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full",
-                "text-muted-foreground/60 transition-all",
-                "hover:text-warm-link hover:scale-110",
-                "disabled:opacity-40",
-              )}
-            >
-              {pending && !conversationStarted ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sprout className="h-4 w-4" />
-              )}
-            </button>
-          </div>
-
-          {/* Dedication line */}
-          <div className="mt-3 px-6">
-            <input
-              type="text"
-              value={dedicatedTo}
-              onChange={(e) => setDedicatedTo(e.target.value)}
-              placeholder="for… (optional)"
-              maxLength={120}
-              disabled={conversationStarted || !!sendOff}
-              className={cn(
-                "w-full border-0 border-b border-transparent bg-transparent py-1.5 text-sm italic text-foreground/80",
-                "placeholder:italic placeholder:text-muted-foreground/45",
-                "focus:border-warm-link/40 focus:outline-none",
-                "disabled:opacity-70",
-              )}
-            />
-          </div>
-
-          {todaySetId && !conversationStarted && !sendOff && (
-            <p className="mt-3 text-center text-[11px] text-muted-foreground/70">
+          {busy ? (
+            <div className="flex flex-col items-center gap-3 py-6">
+              <Loader2 className="h-6 w-6 animate-spin text-warm-link" />
+              <p className="text-sm italic text-muted-foreground">{busyMsg}</p>
+            </div>
+          ) : (
+            <>
               <button
                 type="button"
-                onClick={() =>
-                  FLOW_V2
-                    ? navigate({ to: "/set/$setId/dig", params: { setId: todaySetId } })
-                    : navigate({ to: "/assembly/$setId", params: { setId: todaySetId } })
-                }
-                className="italic text-warm-link/80 underline decoration-dotted underline-offset-4 hover:text-warm-link"
+                onClick={() => fileRef.current?.click()}
+                className="flex w-full items-center justify-center gap-2.5 text-foreground"
               >
-                Resume today's set →
+                <Upload className="h-5 w-5 text-warm-link" />
+                <span className="font-display text-lg md:text-xl">
+                  Drop tracks, stems, voice notes — anything
+                </span>
               </button>
-            </p>
-          )}
-
-          {/* FLOW_V2: the companion's one warm line before the dig */}
-          <AnimatePresence>
-            {sendOff && (
-              <motion.div
-                key="sendoff"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.5, ease: "easeOut" }}
-                className="mt-6 rounded-2xl border border-warm-link/40 bg-card/70 px-5 py-4 text-left backdrop-blur-sm shadow-[0_0_24px_-8px_var(--warm-link)]"
-              >
-                <p className="font-display text-sm italic leading-relaxed text-foreground/90">
-                  {sendOff}
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* === The conversation thread === */}
-          <AnimatePresence>
-            {conversationStarted && (
-              <motion.div
-                key="thread"
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.5, ease: "easeOut" }}
-                className="mt-6 space-y-3 text-left"
-              >
-                {/* Welcome-back banner when we restored a saved conversation */}
-                {showResumeBanner && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="rounded-2xl border border-warm-link/40 bg-warm-link/10 px-4 py-3 backdrop-blur-sm"
-                  >
-                    <p className="font-display text-sm italic text-foreground/90">
-                      Welcome back. We left off here{lastPillar ? ` — in the ${lastPillar}` : ""}.
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {lastPillar && (
-                        <button
-                          type="button"
-                          onClick={continueWhereLeftOff}
-                          disabled={routing}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-warm-link/25 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-warm-link/40 disabled:opacity-50"
-                        >
-                          <ArrowRight className="h-3 w-3" />
-                          Continue where we left off
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={keepTalking}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/40 px-3 py-1 text-xs text-foreground/85 transition-colors hover:border-warm-link hover:text-foreground"
-                      >
-                        <Sparkles className="h-3 w-3" />
-                        Keep talking
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void restart()}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-border/40 px-3 py-1 text-[11px] text-muted-foreground/80 transition-colors hover:border-warm-link/60 hover:text-foreground"
-                      >
-                        <RotateCcw className="h-3 w-3" />
-                        Start a new intention
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-
-                {messages.map((m, i) => (
-                  <ChatBubble
-                    key={i}
-                    msg={m}
-                    onChip={(label) => void send(label)}
-                    disabled={pending || routing || i !== messages.length - 1}
-                  />
-                ))}
-
-                {pending && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex items-center gap-2 px-2 text-xs italic text-muted-foreground/70"
-                  >
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    listening…
-                  </motion.div>
-                )}
-
-                {/* Reply box — only when last message is a question and not routing */}
-                {lastIsAssistantQuestion && !pending && !routing && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      ref={replyInputRef}
-                      type="text"
-                      value={reply}
-                      onChange={(e) => setReply(e.target.value)}
-                      onKeyDown={onReplyKey}
-                      placeholder="…or say it your own way"
-                      maxLength={500}
-                      className={cn(
-                        "flex-1 rounded-full border border-border/60 bg-background/60 px-4 py-2 text-sm text-foreground",
-                        "placeholder:italic placeholder:text-muted-foreground/50",
-                        "focus:border-warm-link focus:outline-none",
-                      )}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => void send()}
-                      disabled={!reply.trim()}
-                      aria-label="Send reply"
-                      className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-full bg-warm-link/15 text-warm-link transition-all",
-                        "hover:bg-warm-link/25",
-                        "disabled:opacity-40",
-                      )}
-                    >
-                      <ArrowRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
-
-                {routing && (
-                  <div className="mt-2 flex items-center gap-2 px-2 text-xs italic text-warm-link">
-                    <Sparkles className="h-3 w-3" />
-                    walking you there…
-                  </div>
-                )}
-
-                {error && (
-                  <p className="px-2 text-[11px] italic text-destructive/80">{error}</p>
-                )}
-
-                <div ref={threadEndRef} />
-
-                {/* Soft escape hatch */}
-                {!routing && (
+              <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+                {sources.map((s) => (
                   <button
+                    key={s.label}
                     type="button"
-                    onClick={restart}
-                    className="mt-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 hover:text-foreground"
+                    onClick={s.onClick}
+                    className="flex items-center gap-2 rounded-xl border border-border/50 bg-background/50 px-3 py-2.5 text-left transition-all hover:border-warm-link/70 hover:bg-card/70"
                   >
-                    ← Start over
-                  </button>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* One-tap intention templates (only before the chat starts) */}
-          {!conversationStarted && (
-            <>
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-                {intentionTemplates.map((tpl) => (
-                  <button
-                    key={tpl.label}
-                    type="button"
-                    onClick={() => submitIntention(tpl.intention)}
-                    title={tpl.intention}
-                    className={cn(
-                      "group inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/50 px-3 py-1.5",
-                      "text-xs text-foreground/80 backdrop-blur-sm transition-all",
-                      "hover:border-warm-link hover:bg-warm-link/10 hover:text-foreground",
-                    )}
-                  >
-                    <span aria-hidden className="text-sm leading-none">{tpl.emoji}</span>
-                    <span>{tpl.label}</span>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-warm-link/15 text-warm-link">
+                      <s.icon className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-medium text-foreground">
+                        {s.label}
+                      </span>
+                      <span className="block truncate text-[10px] text-muted-foreground">
+                        {s.sub}
+                      </span>
+                    </span>
                   </button>
                 ))}
               </div>
-              <p className="mt-3 text-[11px] italic text-muted-foreground/60">
-                {FLOW_V2
-                  ? "Press the seedling when it feels true."
-                  : "Press the seedling — the coach will help you find where to start."}
-              </p>
             </>
           )}
-        </motion.div>
-
-        {/* Bottom nav row — quick pillar shortcuts (demoted in the one-breath flow) */}
-        {!FLOW_V2 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 0.7, ease: "easeOut" }}
-          className="mt-12 flex flex-wrap items-center justify-center gap-1.5 text-sm tracking-wide opacity-90"
-        >
-          {destinations.map((dest) => (
-            <button
-              key={dest.label}
-              type="button"
-              onClick={() => goToPillar(dest.to)}
-              className={cn(
-                "group flex flex-col items-center gap-0.5 rounded-2xl border border-warm-link/20 bg-card/20 px-3 py-1.5 text-center backdrop-blur-sm transition-all",
-                "hover:border-warm-link/60 hover:bg-warm-link/10",
-              )}
-              title={`Go to ${dest.label} — ${dest.hint}`}
-            >
-              <span className="font-display text-sm italic text-warm-link/80 group-hover:text-warm-link">{dest.label}</span>
-              <span className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground/60 group-hover:text-foreground/80">
-                {dest.hint}
-              </span>
-            </button>
-          ))}
-        </motion.div>
-        )}
-      </div>
-
-      {/* === SOIL CROSS-SECTION (bottom) === */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-56 md:h-64"
-      >
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(180deg, rgba(139,90,43,0) 0%, rgba(139,90,43,0.55) 25%, rgba(61,46,32,0.92) 70%, rgba(42,31,23,1) 100%)",
-          }}
-        />
-        <div className="absolute inset-x-0 bottom-0 h-full">
-          <RootSystem />
         </div>
-      </div>
+
+        {/* Optional vibe / intention */}
+        {!busy && (
+          <div className="mt-7 flex w-full max-w-lg items-center gap-2 rounded-full border border-border/60 bg-card/50 px-5 py-2.5 focus-within:border-warm-link">
+            <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
+              Optional
+            </span>
+            <input
+              type="text"
+              value={vibe}
+              onChange={(e) => setVibe(e.target.value)}
+              onKeyDown={onVibeKey}
+              placeholder="tell me a vibe to aim for…"
+              maxLength={200}
+              className="flex-1 bg-transparent text-sm text-foreground placeholder:italic placeholder:text-muted-foreground/50 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={startVoice}
+              aria-label="Speak your vibe"
+              className={cn(
+                "flex h-7 w-7 items-center justify-center rounded-full transition-colors",
+                listening
+                  ? "bg-warm-link/30 text-warm-link"
+                  : "text-muted-foreground hover:text-warm-link",
+              )}
+            >
+              <Mic className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Start digging / resume */}
+        {!busy && (
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3 text-sm text-muted-foreground">
+            <span>Prefer to start digging?</span>
+            <button
+              type="button"
+              onClick={() => void openCrate()}
+              className="inline-flex items-center gap-1.5 rounded-full bg-warm-link px-5 py-2 font-display text-sm text-background transition-all hover:shadow-[0_0_24px_-6px_var(--warm-link)]"
+            >
+              Open the crate <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+            <span className="text-muted-foreground/60">or drop a folder right here</span>
+          </div>
+        )}
+
+        <AnimatePresence>
+          {resumeId && !busy && (
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              type="button"
+              onClick={() => navigate({ to: "/set/$setId/dig", params: { setId: resumeId } })}
+              className="mt-6 text-[11px] italic text-warm-link/80 underline decoration-dotted underline-offset-4 hover:text-warm-link"
+            >
+              Pick up today's set →
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </motion.div>
     </div>
   );
 }
 
-/* ---------------- Chat bubble ---------------- */
-
-function ChatBubble({
-  msg,
-  onChip,
-  disabled,
-}: {
-  msg: ChatMsg;
-  onChip: (label: string) => void;
-  disabled: boolean;
-}) {
-  if (msg.role === "user") {
-    return (
-      <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-tr-sm border border-border/40 bg-warm-link/10 px-4 py-2 text-sm text-foreground/90">
-          {msg.content}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex justify-start">
-      <div
-        className={cn(
-          "max-w-[92%] rounded-2xl rounded-tl-sm border bg-card/70 px-4 py-3 backdrop-blur-sm",
-          msg.isFinal
-            ? "border-warm-link/60 shadow-[0_0_24px_-8px_var(--warm-link)]"
-            : "border-warm-link/30",
-        )}
-      >
-        <p className="font-display text-sm italic leading-relaxed text-foreground/90">
-          {msg.content}
-        </p>
-        {msg.chips && msg.chips.length > 0 && !msg.isFinal && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {msg.chips.map((chip) => (
-              <button
-                key={chip}
-                type="button"
-                disabled={disabled}
-                onClick={() => onChip(chip)}
-                className={cn(
-                  "rounded-full border border-border/60 bg-background/40 px-3 py-1 text-xs text-foreground/85 transition-all",
-                  "hover:border-warm-link hover:bg-warm-link/10 hover:text-foreground",
-                  "disabled:cursor-not-allowed disabled:opacity-40",
-                )}
-              >
-                {chip}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+/* Minimal typings for the optional Web Speech API. */
+type SpeechResultLike = { results: { [i: number]: { [j: number]: { transcript: string } } } };
+interface SpeechRecognitionLike {
+  lang: string;
+  interimResults: boolean;
+  onresult: (ev: SpeechResultLike) => void;
+  onend: () => void;
+  onerror: () => void;
+  start: () => void;
 }

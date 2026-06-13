@@ -15,12 +15,12 @@ import logo from "@/assets/groundroot-logo.png";
 export type StageKey = "welcome" | "dig" | "order" | "play" | "polish" | "door";
 
 export const STAGES: { key: StageKey; label: string; title: string }[] = [
-  { key: "welcome", label: "Breathe", title: "Wow — deep breath in" },
-  { key: "dig", label: "Dig", title: "Shall we dig?" },
-  { key: "order", label: "Clean", title: "We need a clean up…" },
-  { key: "play", label: "Play", title: "Time to playyy" },
-  { key: "polish", label: "Polish", title: "Gotta polish this gem" },
-  { key: "door", label: "Door", title: "Deep breath out — the door" },
+  { key: "welcome", label: "breathe", title: "Wooo — deep breath in" },
+  { key: "dig", label: "dig", title: "Shall we dig?" },
+  { key: "order", label: "clean up", title: "We need a clean up…" },
+  { key: "play", label: "play", title: "Time. To. Play." },
+  { key: "polish", label: "polish", title: "Gotta polish this gem :)" },
+  { key: "door", label: "the door", title: "Deep breath out — the doorrr" },
 ];
 
 const STAGE_PATH: Record<Exclude<StageKey, "welcome">, string> = {
@@ -37,12 +37,12 @@ export function BreathShell({ stage, children }: { stage: StageKey; children: Re
   const current = STAGES[stageIdx];
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-1px)] w-full max-w-3xl flex-col px-6 pb-16">
-      {/* Top row: home, breath dots, quiet offline mark */}
-      <div className="flex items-center justify-between gap-4 pt-5">
+    <div className="mx-auto flex min-h-[calc(100vh-1px)] w-full max-w-5xl flex-col px-6 pb-16">
+      {/* Top row: home (left), the breath arc (center), quiet offline mark (right) */}
+      <div className="flex items-center justify-between gap-4 pt-4">
         <Link
           to="/welcome"
-          className="flex shrink-0 items-center gap-2 opacity-80 transition-opacity hover:opacity-100"
+          className="flex shrink-0 items-center gap-2 opacity-90 transition-opacity hover:opacity-100"
           title="Back to the start"
         >
           <img
@@ -52,9 +52,10 @@ export function BreathShell({ stage, children }: { stage: StageKey; children: Re
             width={28}
             height={28}
           />
+          <span className="font-display text-base text-foreground/90">groundroot</span>
         </Link>
 
-        <BreathDots stageIdx={stageIdx} setId={setRow.id} />
+        <ArcNav stageIdx={stageIdx} setId={setRow.id} />
 
         <span
           className={cn(
@@ -85,55 +86,121 @@ export function BreathShell({ stage, children }: { stage: StageKey; children: Re
   );
 }
 
-/* ----- Six dots, one breath ----- */
+/* ----- The breath arc: stages rise from the first to a peak, then fall to the last.
+   Doubles as fast navigation — any reached stage is one click away. No numbers. ----- */
 
-function BreathDots({ stageIdx, setId }: { stageIdx: number; setId: string }) {
+const ARC_W = 520;
+const ARC_H = 54;
+// Hill heights (px lifted above the baseline) — rise to the middle, fall to the end.
+const LIFT = [0, 16, 26, 26, 16, 0];
+const BASE_Y = ARC_H - 12;
+
+function arcPoints() {
+  const n = STAGES.length;
+  const x0 = 26;
+  const step = (ARC_W - x0 * 2) / (n - 1);
+  return STAGES.map((_, i) => ({ x: x0 + i * step, y: BASE_Y - LIFT[i] }));
+}
+
+function ArcNav({ stageIdx, setId }: { stageIdx: number; setId: string }) {
   const navigate = useNavigate();
+  const pts = arcPoints();
+  // Smooth path through the points (Catmull-Rom-ish via quadratic midpoints).
+  const linePath = pts
+    .map((p, i) => {
+      if (i === 0) return `M ${p.x} ${p.y}`;
+      const prev = pts[i - 1];
+      const mx = (prev.x + p.x) / 2;
+      return `Q ${prev.x} ${prev.y} ${mx} ${(prev.y + p.y) / 2} T ${p.x} ${p.y}`;
+    })
+    .join(" ");
+  // Progress path up to the current node.
+  const reachedPath = pts
+    .slice(0, stageIdx + 1)
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
+    .join(" ");
+
+  const go = (s: (typeof STAGES)[number]) => {
+    if (s.key === "welcome") navigate({ to: "/welcome" });
+    else
+      navigate({
+        to: `/set/$setId/${STAGE_PATH[s.key as Exclude<StageKey, "welcome">]}` as string,
+        params: { setId },
+      });
+  };
+
   return (
-    <div className="flex items-center gap-3">
-      {STAGES.map((s, i) => {
-        const reached = i <= stageIdx;
-        const isCurrent = i === stageIdx;
-        const clickable = reached && !isCurrent;
-        return (
-          <button
-            key={s.key}
-            type="button"
-            disabled={!clickable}
-            onClick={() => {
-              if (s.key === "welcome") {
-                navigate({ to: "/welcome" });
-              } else {
-                navigate({
-                  to: `/set/$setId/${STAGE_PATH[s.key as Exclude<StageKey, "welcome">]}` as string,
-                  params: { setId },
-                });
-              }
-            }}
-            className={cn("group flex flex-col items-center gap-1", !clickable && "cursor-default")}
-            title={s.title}
-          >
-            <span
-              className={cn(
-                "block h-2 w-2 rounded-full transition-all",
-                isCurrent
-                  ? "scale-125 bg-warm-link shadow-[0_0_10px_2px_rgba(212,165,116,0.5)]"
-                  : reached
-                    ? "bg-warm-link/50 group-hover:bg-warm-link/80"
-                    : "bg-border",
-              )}
-            />
-            <span
-              className={cn(
-                "text-[9px] uppercase tracking-[0.15em]",
-                isCurrent ? "text-foreground/80" : "text-muted-foreground/50",
-              )}
+    <div className="relative mx-2 flex-1" style={{ maxWidth: ARC_W }}>
+      <svg
+        viewBox={`0 0 ${ARC_W} ${ARC_H}`}
+        className="h-[54px] w-full overflow-visible"
+        preserveAspectRatio="xMidYMid meet"
+      >
+        <path
+          d={linePath}
+          fill="none"
+          stroke="var(--border)"
+          strokeWidth={1.5}
+          strokeLinecap="round"
+        />
+        <path
+          d={reachedPath}
+          fill="none"
+          stroke="var(--warm-link)"
+          strokeWidth={2}
+          strokeLinecap="round"
+          opacity={0.7}
+        />
+        {pts.map((p, i) => {
+          const s = STAGES[i];
+          const reached = i <= stageIdx;
+          const isCurrent = i === stageIdx;
+          const clickable = reached && !isCurrent;
+          return (
+            <g
+              key={s.key}
+              className={clickable ? "cursor-pointer" : "cursor-default"}
+              onClick={() => clickable && go(s)}
             >
-              {s.label}
-            </span>
-          </button>
-        );
-      })}
+              {isCurrent && (
+                <circle cx={p.x} cy={p.y} r={8} fill="var(--warm-link)" opacity={0.18} />
+              )}
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r={isCurrent ? 4.5 : 3.5}
+                fill={
+                  isCurrent ? "var(--warm-link)" : reached ? "var(--warm-link)" : "var(--border)"
+                }
+                opacity={reached ? 1 : 0.6}
+              />
+              <text
+                x={p.x}
+                y={ARC_H - 1}
+                textAnchor="middle"
+                className={cn(
+                  "select-none lowercase",
+                  isCurrent ? "fill-foreground" : "fill-muted-foreground",
+                )}
+                style={{ fontSize: 8.5, letterSpacing: "0.08em", opacity: reached ? 0.95 : 0.5 }}
+              >
+                {s.label}
+              </text>
+              {/* Invisible wide hit-area for easy clicking */}
+              <rect
+                x={p.x - 26}
+                y={0}
+                width={52}
+                height={ARC_H}
+                fill="transparent"
+                onClick={() => clickable && go(s)}
+              >
+                <title>{s.title}</title>
+              </rect>
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 }
