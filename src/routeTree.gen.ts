@@ -16,7 +16,9 @@ import { Route as AppWelcomeRouteImport } from './routes/_app.welcome'
 import { Route as AppMasteringRouteImport } from './routes/_app.mastering'
 import { Route as AppLibraryRouteImport } from './routes/_app.library'
 import { Route as AppShareSetIdRouteImport } from './routes/_app.share.$setId'
+import { Route as AppSetSetIdRouteImport } from './routes/_app.set.$setId'
 import { Route as AppAssemblySetIdRouteImport } from './routes/_app.assembly_.$setId'
+import { Route as AppSetSetIdDigRouteImport } from './routes/_app.set.$setId.dig'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -52,10 +54,20 @@ const AppShareSetIdRoute = AppShareSetIdRouteImport.update({
   path: '/share/$setId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSetSetIdRoute = AppSetSetIdRouteImport.update({
+  id: '/set/$setId',
+  path: '/set/$setId',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAssemblySetIdRoute = AppAssemblySetIdRouteImport.update({
   id: '/assembly_/$setId',
   path: '/assembly/$setId',
   getParentRoute: () => AppRoute,
+} as any)
+const AppSetSetIdDigRoute = AppSetSetIdDigRouteImport.update({
+  id: '/dig',
+  path: '/dig',
+  getParentRoute: () => AppSetSetIdRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -65,7 +77,9 @@ export interface FileRoutesByFullPath {
   '/welcome': typeof AppWelcomeRoute
   '/spotify/callback': typeof SpotifyCallbackRoute
   '/assembly/$setId': typeof AppAssemblySetIdRoute
+  '/set/$setId': typeof AppSetSetIdRouteWithChildren
   '/share/$setId': typeof AppShareSetIdRoute
+  '/set/$setId/dig': typeof AppSetSetIdDigRoute
 }
 export interface FileRoutesByTo {
   '/library': typeof AppLibraryRoute
@@ -74,7 +88,9 @@ export interface FileRoutesByTo {
   '/spotify/callback': typeof SpotifyCallbackRoute
   '/': typeof AppIndexRoute
   '/assembly/$setId': typeof AppAssemblySetIdRoute
+  '/set/$setId': typeof AppSetSetIdRouteWithChildren
   '/share/$setId': typeof AppShareSetIdRoute
+  '/set/$setId/dig': typeof AppSetSetIdDigRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -85,7 +101,9 @@ export interface FileRoutesById {
   '/spotify/callback': typeof SpotifyCallbackRoute
   '/_app/': typeof AppIndexRoute
   '/_app/assembly_/$setId': typeof AppAssemblySetIdRoute
+  '/_app/set/$setId': typeof AppSetSetIdRouteWithChildren
   '/_app/share/$setId': typeof AppShareSetIdRoute
+  '/_app/set/$setId/dig': typeof AppSetSetIdDigRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -96,7 +114,9 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/spotify/callback'
     | '/assembly/$setId'
+    | '/set/$setId'
     | '/share/$setId'
+    | '/set/$setId/dig'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/library'
@@ -105,7 +125,9 @@ export interface FileRouteTypes {
     | '/spotify/callback'
     | '/'
     | '/assembly/$setId'
+    | '/set/$setId'
     | '/share/$setId'
+    | '/set/$setId/dig'
   id:
     | '__root__'
     | '/_app'
@@ -115,7 +137,9 @@ export interface FileRouteTypes {
     | '/spotify/callback'
     | '/_app/'
     | '/_app/assembly_/$setId'
+    | '/_app/set/$setId'
     | '/_app/share/$setId'
+    | '/_app/set/$setId/dig'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -174,6 +198,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppShareSetIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/set/$setId': {
+      id: '/_app/set/$setId'
+      path: '/set/$setId'
+      fullPath: '/set/$setId'
+      preLoaderRoute: typeof AppSetSetIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/assembly_/$setId': {
       id: '/_app/assembly_/$setId'
       path: '/assembly/$setId'
@@ -181,8 +212,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAssemblySetIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/set/$setId/dig': {
+      id: '/_app/set/$setId/dig'
+      path: '/dig'
+      fullPath: '/set/$setId/dig'
+      preLoaderRoute: typeof AppSetSetIdDigRouteImport
+      parentRoute: typeof AppSetSetIdRoute
+    }
   }
 }
+
+interface AppSetSetIdRouteChildren {
+  AppSetSetIdDigRoute: typeof AppSetSetIdDigRoute
+}
+
+const AppSetSetIdRouteChildren: AppSetSetIdRouteChildren = {
+  AppSetSetIdDigRoute: AppSetSetIdDigRoute,
+}
+
+const AppSetSetIdRouteWithChildren = AppSetSetIdRoute._addFileChildren(
+  AppSetSetIdRouteChildren,
+)
 
 interface AppRouteChildren {
   AppLibraryRoute: typeof AppLibraryRoute
@@ -190,6 +240,7 @@ interface AppRouteChildren {
   AppWelcomeRoute: typeof AppWelcomeRoute
   AppIndexRoute: typeof AppIndexRoute
   AppAssemblySetIdRoute: typeof AppAssemblySetIdRoute
+  AppSetSetIdRoute: typeof AppSetSetIdRouteWithChildren
   AppShareSetIdRoute: typeof AppShareSetIdRoute
 }
 
@@ -199,6 +250,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppWelcomeRoute: AppWelcomeRoute,
   AppIndexRoute: AppIndexRoute,
   AppAssemblySetIdRoute: AppAssemblySetIdRoute,
+  AppSetSetIdRoute: AppSetSetIdRouteWithChildren,
   AppShareSetIdRoute: AppShareSetIdRoute,
 }
 

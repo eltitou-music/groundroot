@@ -31,3 +31,8 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Demo crate audio — run scripts/gen-demo-crate.mjs for placeholders, or drop real files
+public/demo-crate/*.wav
+public/demo-crate/*.mp3
+public/demo-crate/*.m4a

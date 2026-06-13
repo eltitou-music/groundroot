@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { ensureUserId } from "@/utils/today-set";
 
 /**
  * Shared hand-off helper — used by Beatmaker, Library, Assembly entry points.
@@ -15,18 +16,6 @@ export type HandoffTrack = {
   upload_url?: string | null;
   bpm?: number | null;
 };
-
-async function ensureUserId(): Promise<string> {
-  const { data: sess } = await supabase.auth.getSession();
-  let uid = sess.session?.user.id ?? null;
-  if (!uid) {
-    const { data, error } = await supabase.auth.signInAnonymously();
-    if (error) throw error;
-    uid = data.user?.id ?? null;
-  }
-  if (!uid) throw new Error("Couldn't start a session.");
-  return uid;
-}
 
 /** Find the most recent set for the user, or create a new one with this intention. */
 async function ensureSet(uid: string, intention: string | undefined): Promise<string> {

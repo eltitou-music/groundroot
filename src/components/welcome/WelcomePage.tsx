@@ -8,6 +8,10 @@ import { cn } from "@/lib/utils";
 import { RootSystem } from "@/components/welcome/RootSystem";
 import { findTodaySet, getOrCreateTodaySet, ensureUserId } from "@/utils/today-set";
 import { isCoachStateFresh, type StoredCoachState } from "@/utils/coach-state";
+import { FLOW_V2 } from "@/utils/flags";
+import { welcomeFallback } from "@/utils/companion-lines";
+import { saveMirror, latestMirroredSetId } from "@/utils/set-mirror";
+import { logEvent } from "@/utils/telemetry";
 
 type Pillar = "library" | "assembly" | "mastering";
 
@@ -66,6 +70,9 @@ export function WelcomePage() {
   const [routing, setRouting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // FLOW_V2: the one warm send-off line before the breath moves to the dig
+  const [sendOff, setSendOff] = useState<string | null>(null);
+
   // Resume state — when we find a saved conversation on this set
   const [resumed, setResumed] = useState(false);
   const [lastPillar, setLastPillar] = useState<Pillar | null>(null);
@@ -79,6 +86,16 @@ export function WelcomePage() {
   const lastMsg = messages[messages.length - 1];
   const lastIsAssistantQuestion =
     lastMsg?.role === "assistant" && !lastMsg.isFinal;
+
+  // FLOW_V2 offline re-entry: if the session lookup couldn't run (wifi down),
+  // fall back to the most recently mirrored set so "Resume" still works.
+  useEffect(() => {
+    if (!FLOW_V2) return;
+    const t = setTimeout(() => {
+      setTodaySetId((cur) => cur ?? latestMirroredSetId());
+    }, 1500);
+    return () => clearTimeout(t);
+  }, []);
 
   // Resume today's set + coach conversation on mount
   useEffect(() => {
@@ -293,11 +310,94 @@ export function WelcomePage() {
     }
   };
 
+  /* ----- FLOW_V2: one breath in — intention, one coach line, into the dig.
+   * The coach call is raced against a 4s timeout; on failure the scripted
+   * companion line appears instead. The demo cannot tell the wifi is down. ----- */
+  const breathSubmit = async (finalIntention: string) => {
+    setPending(true);
+    setError(null);
+
+    let setId: string;
+    try {
+      const uid = await ensureUserId();
+      const today = await getOrCreateTodaySet(uid, finalIntention, dedicatedTo);
+      if (!today.isFresh) {
+        await supabase
+          .from("sets")
+          .update({
+            intention: finalIntention,
+            dedicated_to: dedicatedTo.trim() || today.dedicated_to,
+          })
+          .eq("id", today.id);
+      }
+      setId = today.id;
+    } catch {
+      // True first-run offline: a local-only set keeps the breath alive.
+      setId = `local-${Date.now()}`;
+      saveMirror(
+        setId,
+        {
+          id: setId,
+          title: "Untitled set",
+          intention: finalIntention,
+          dedicated_to: dedicatedTo.trim() || null,
+          cover_image_url: null,
+        },
+        [],
+      );
+    }
+    setTodaySetId(setId);
+    logEvent("intention_set", { len: finalIntention.length }, setId);
+
+    // One reflective line from the live coach — or the scripted twin.
+    const started = performance.now();
+    let line = welcomeFallback(finalIntention);
+    let offline = true;
+    try {
+      const out = await Promise.race([
+        supabase.functions.invoke("welcome-coach", {
+          body: {
+            action: "converse",
+            intention: finalIntention,
+            dedicatedTo: dedicatedTo.trim(),
+            history: [{ role: "user", content: finalIntention }],
+            turn: 0,
+          },
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("gr-timeout")), 4000),
+        ),
+      ]);
+      const msg = (out?.data as { message?: string } | null)?.message;
+      if (!out?.error && msg) {
+        line = msg;
+        offline = false;
+      }
+    } catch {
+      /* the scripted line stands */
+    }
+    logEvent(
+      "coach_replied",
+      { offline, ms: Math.round(performance.now() - started) },
+      setId,
+    );
+
+    setSendOff(line);
+    setPending(false);
+    setTimeout(() => {
+      navigate({ to: "/set/$setId/dig", params: { setId } });
+    }, 1700);
+  };
+
   /* ----- Begin conversation from the intention input ----- */
   const submitIntention = (overrideIntention?: string) => {
     const finalIntention = (overrideIntention ?? intention).trim();
-    if (!finalIntention || pending || routing) return;
+    if (!finalIntention || pending || routing || sendOff) return;
     if (overrideIntention) setIntention(overrideIntention);
+    if (FLOW_V2) {
+      void breathSubmit(finalIntention);
+      return;
+    }
     void send(undefined, /* isFirstSend */ true);
   };
 
@@ -433,7 +533,7 @@ export function WelcomePage() {
           className="mt-4 flex flex-col items-center"
         >
           <p className="font-display text-base italic text-foreground/80 md:text-lg">
-            From Intention to Expression… &amp; Release :)
+            From quiet intention to proud expression in one breath.
           </p>
           <span aria-hidden className="mt-1 block h-px w-32 bg-foreground/40" />
         </motion.div>
@@ -453,7 +553,7 @@ export function WelcomePage() {
               value={intention}
               onChange={(e) => setIntention(e.target.value)}
               onKeyDown={onIntentionKey}
-              disabled={conversationStarted}
+              disabled={conversationStarted || !!sendOff}
               placeholder="What do you want to say? (e.g. a slow morning for E.)"
               autoFocus
               className={cn(
@@ -492,7 +592,7 @@ export function WelcomePage() {
               onChange={(e) => setDedicatedTo(e.target.value)}
               placeholder="for… (optional)"
               maxLength={120}
-              disabled={conversationStarted}
+              disabled={conversationStarted || !!sendOff}
               className={cn(
                 "w-full border-0 border-b border-transparent bg-transparent py-1.5 text-sm italic text-foreground/80",
                 "placeholder:italic placeholder:text-muted-foreground/45",
@@ -502,17 +602,39 @@ export function WelcomePage() {
             />
           </div>
 
-          {todaySetId && !conversationStarted && (
+          {todaySetId && !conversationStarted && !sendOff && (
             <p className="mt-3 text-center text-[11px] text-muted-foreground/70">
               <button
                 type="button"
-                onClick={() => navigate({ to: "/assembly/$setId", params: { setId: todaySetId } })}
+                onClick={() =>
+                  FLOW_V2
+                    ? navigate({ to: "/set/$setId/dig", params: { setId: todaySetId } })
+                    : navigate({ to: "/assembly/$setId", params: { setId: todaySetId } })
+                }
                 className="italic text-warm-link/80 underline decoration-dotted underline-offset-4 hover:text-warm-link"
               >
                 Resume today's set →
               </button>
             </p>
           )}
+
+          {/* FLOW_V2: the companion's one warm line before the dig */}
+          <AnimatePresence>
+            {sendOff && (
+              <motion.div
+                key="sendoff"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                className="mt-6 rounded-2xl border border-warm-link/40 bg-card/70 px-5 py-4 text-left backdrop-blur-sm shadow-[0_0_24px_-8px_var(--warm-link)]"
+              >
+                <p className="font-display text-sm italic leading-relaxed text-foreground/90">
+                  {sendOff}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* === The conversation thread === */}
           <AnimatePresence>
@@ -670,13 +792,16 @@ export function WelcomePage() {
                 ))}
               </div>
               <p className="mt-3 text-[11px] italic text-muted-foreground/60">
-                Press the seedling — the coach will help you find where to start.
+                {FLOW_V2
+                  ? "Press the seedling when it feels true."
+                  : "Press the seedling — the coach will help you find where to start."}
               </p>
             </>
           )}
         </motion.div>
 
-        {/* Bottom nav row — quick shortcuts (always visible) */}
+        {/* Bottom nav row — quick pillar shortcuts (demoted in the one-breath flow) */}
+        {!FLOW_V2 && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -701,6 +826,7 @@ export function WelcomePage() {
             </button>
           ))}
         </motion.div>
+        )}
       </div>
 
       {/* === SOIL CROSS-SECTION (bottom) === */}

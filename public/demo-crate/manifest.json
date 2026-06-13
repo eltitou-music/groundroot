@@ -1,0 +1,35 @@
+{
+  "note": "Rights-free demo crate. Drop the real files in this folder with these exact filenames to replace the dev placeholders 1:1. bpm/camelot_key/energy are hand-authored so S2 always has full data.",
+  "tracks": [
+    {
+      "file": "under-control.mp3",
+      "fallbackFile": "under-control.wav",
+      "title": "Under Control",
+      "artist": "Neon Game",
+      "bpm": 118,
+      "camelot_key": "8A",
+      "energy": 62,
+      "license": "rights-free (demo crate)"
+    },
+    {
+      "file": "di-mi-quando.mp3",
+      "fallbackFile": "di-mi-quando.wav",
+      "title": "Di Mi Quando",
+      "artist": "Aventura",
+      "bpm": 121,
+      "camelot_key": "8B",
+      "energy": 70,
+      "license": "rights-free (demo crate)"
+    },
+    {
+      "file": "promises-parralox-remix.mp3",
+      "fallbackFile": "promises-parralox-remix.wav",
+      "title": "Promises (Parralox Remix)",
+      "artist": "Vision Talk",
+      "bpm": 124,
+      "camelot_key": "9A",
+      "energy": 78,
+      "license": "rights-free (demo crate)"
+    }
+  ]
+}
